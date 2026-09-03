@@ -33,6 +33,69 @@ yf# AI-интервьюер — спецификация API
 | `/api/s/{token}/...` | кандидат | токен сессии интервью |
 | `/api/r/{token}` | нанимающий менеджер | токен ссылки на результат, read-only |
 
+## 0.1. Разработка фронтенда против скелета
+
+Бэкенд уже отвечает по всем эндпоинтам этой спеки. Внутри — заглушки
+(`stub`-пакет), но контракт, статусы, коды ошибок и разграничение доступа
+настоящие. Фронт можно писать целиком, ничего не дожидаясь.
+
+### Запуск
+
+```bash
+docker compose up -d    # postgres + minio
+./gradlew bootRun       # http://localhost:8080
+```
+
+### Учётки рекрутеров
+
+| Логин | Пароль |
+|---|---|
+| `recruiter` | `recruiter` |
+| `anna` | `anna` |
+
+Вторая нужна, чтобы проверять разграничение: у неё свои вакансии и она не видит
+чужих кандидатов.
+
+### С чего начать
+
+```bash
+curl -X POST http://localhost:8080/api/demo/seed
+```
+
+Создаёт вакансию «Middle+ Python Developer» с 18 требованиями и зафиксированным
+набором из 6 эталонных вопросов. Идемпотентно. Владелец — `recruiter`.
+
+### CORS и прокси
+
+Бэкенд разрешает CORS с любого `localhost:*` вместе с куками, так что Vite
+dev-сервер заработает и напрямую. Надёжнее всё же прокси в `vite.config.ts` —
+тогда origin один и куки ведут себя как в проде:
+
+```ts
+server: { proxy: { "/api": "http://localhost:8080" } }
+```
+
+Загрузка медиа идёт **не** через прокси: presigned URL ведёт прямо на
+`http://localhost:9000`.
+
+### Что заглушка делает не по-настоящему
+
+| Поведение | Как сейчас | Как будет |
+|---|---|---|
+| Обработка ответа | 6 секунд, стадии переключаются по таймеру | ASR + LLM |
+| Уточняющий вопрос | Ровно один, после ответа на 2-й вопрос | Решает модель по содержанию ответа |
+| Сборка карточки | 5 секунд, текст захардкожен | LLM по транскриптам |
+| Генерация вопросов | `LLM` и `REFERENCE` дают одни и те же 6 вопросов | LLM по вакансии и резюме |
+| Персональные вопросы | 2 шаблонных, с куском резюме внутри | LLM по резюме |
+| Озвучка вопроса | WAV нужной длительности, тишина | Silero |
+| Хранение | В памяти, теряется при рестарте | PostgreSQL |
+
+Настоящие уже сейчас: presigned-загрузка в MinIO, стейт-машина интервью,
+разграничение доступа, версионирование наборов вопросов, коды ошибок.
+
+Карточка помечает себя заглушкой: в `technical.notes` лежит строка
+«ВНИМАНИЕ: карточка сгенерирована заглушкой скелета».
+
 ## 1. Ошибки
 
 Единый формат для всех ответов 4xx/5xx:
@@ -473,7 +536,7 @@ POST /api/s/{token}/start                            -> CandidateState
 POST /api/s/{token}/answers   { questionId, contentType } -> AnswerUpload
 POST /api/s/{token}/answers/{answerId}/complete { durationMs } -> 202 CandidateState
 POST /api/s/{token}/answers/{answerId}/retry-upload  -> AnswerUpload
-POST /api/s/{token}/answers/{answerId}/skip          -> CandidateState
+POST /api/s/{token}/questions/{questionId}/skip      -> CandidateState
 POST /api/s/{token}/events  { type, occurredAt? }    -> 204
 GET  /api/s/{token}/questions/{questionId}/audio     -> 200 audio/mpeg
 ```
@@ -484,7 +547,7 @@ GET  /api/s/{token}/questions/{questionId}/audio     -> 200 audio/mpeg
 |---|---|---|
 | `CREATED` | C1: приветствие, правила, чекбокс согласия | `consent` |
 | `READY` | C2: проверка камеры и микрофона | `start` |
-| `IN_PROGRESS`, `processing == null` | C3: `currentQuestion`, запись | `answers`, `skip` |
+| `IN_PROGRESS`, `processing == null` | C3: `currentQuestion`, запись | `answers`, `questions/{id}/skip` |
 | `IN_PROGRESS`, `processing != null` | C4: ожидание, `processing.stage` | только поллинг |
 | `ANALYZING` | C5: «интервью отправлено» | ничего |
 | `READY_REPORT`, `FAILED` | C5: «интервью отправлено» | ничего |
@@ -519,6 +582,8 @@ GET  /api/s/{token}/questions/{questionId}/audio     -> 200 audio/mpeg
   иначе MinIO отклонит подпись. Фронт не выдумывает свой.
 - `answers` вызывается **после** остановки записи, а не до. Presigned URL живёт
   15 минут.
+- Пропуск адресуется **вопросом**, а не ответом: в момент пропуска записи ещё нет,
+  и `answerId` взять неоткуда. Пропустить можно только текущий вопрос.
 - Если `PUT` упал — `retry-upload` даёт новый URL для того же `answerId`.
   Повторный `answers` на тот же вопрос → `409 INVALID_STATE`.
 - Шаг 2 создаёт blob целиком в памяти. При лимите 5 минут и битрейте по

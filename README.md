@@ -28,7 +28,13 @@ docker compose up -d      # postgres:5433, minio:9000, консоль minio:9001
 
 ```bash
 curl -s localhost:8080/actuator/health
+curl -X POST localhost:8080/api/demo/seed   # демо-вакансия с эталонными вопросами
 ```
+
+API отвечает по всей спецификации `docs/api.md`; внутри пока заглушки
+(пакет `stub`), но контракт, статусы и разграничение доступа настоящие.
+Учётки рекрутеров: `recruiter` / `recruiter` и `anna` / `anna`.
+Подробности для фронтенда — `docs/api.md` §0.1.
 
 Остановить инфраструктуру: `docker compose down` (данные остаются в volumes),
 `docker compose down -v` — вместе с данными.
