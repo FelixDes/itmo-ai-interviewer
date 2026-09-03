@@ -1,0 +1,56 @@
+name: aiinterviewer
+
+# Инфраструктура для локальной разработки.
+# Бэкенд запускается отдельно на хосте и ходит сюда по localhost.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: aii-postgres
+    environment:
+      POSTGRES_DB: aiinterviewer
+      POSTGRES_USER: aiinterviewer
+      POSTGRES_PASSWORD: aiinterviewer
+    ports:
+      # 5432 на хосте занят другим проектом
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiinterviewer -d aiinterviewer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: aii-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: aiinterviewer
+      MINIO_ROOT_PASSWORD: aiinterviewer
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web-консоль
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: aii-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      sh -c "
+      until mc alias set local http://minio:9000 aiinterviewer aiinterviewer; do
+        echo 'ждём minio...'; sleep 1;
+      done;
+      mc mb --ignore-existing local/aiinterviewer;
+      mc anonymous set download local/aiinterviewer/public;
+      echo 'бакет aiinterviewer готов';
+      "
+    restart: "no"
+
+volumes:
+  pgdata:
+  miniodata:

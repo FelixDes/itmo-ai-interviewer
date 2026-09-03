@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: aiinterviewer
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/aiinterviewer
+    username: aiinterviewer
+    password: aiinterviewer
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  # Публичный URL кандидатских и менеджерских ссылок
+  public-base-url: http://localhost:5173
+
+  s3:
+    endpoint: http://localhost:9000
+    # Адрес, по которому браузер ходит за presigned URL
+    public-endpoint: http://localhost:9000
+    region: us-east-1
+    bucket: aiinterviewer
+    access-key: aiinterviewer
+    secret-key: aiinterviewer
+    upload-url-ttl: 15m
+    download-url-ttl: 1h
+
+  llm:
+    base-url: http://localhost:1234/v1
+    api-key: lm-studio
+    model: local-model
+    timeout: 120s
+
+  asr:
+    base-url: http://localhost:8100
+    timeout: 300s
+
+  tts:
+    base-url: http://localhost:8101
+    timeout: 60s
+
+  interview:
+    candidate-link-ttl-days: 7
+    share-link-ttl-days: 30
+    max-answer-duration-sec: 300
+    max-followups-per-answer: 2
+    max-total-questions: 12
+
+logging:
+  level:
+    com.itmo.napoleonit.aiinterviewer: DEBUG
