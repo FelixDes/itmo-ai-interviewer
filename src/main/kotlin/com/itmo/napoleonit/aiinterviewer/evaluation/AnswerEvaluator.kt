@@ -31,12 +31,12 @@ interface AnswerEvaluator {
 }
 
 /**
- * Заглушка вместо LLM, но правила настоящие: балл выводится из признаков,
- * которые Рамка §8 требует различать — есть ли пример, назван ли личный вклад,
- * приведены ли масштаб и метрики. Каждый вывод подпирается цитатой с таймкодом.
+ * Запасной путь без модели: балл выводится из признаков, которые Рамка §8
+ * требует различать — есть ли пример, назван ли личный вклад, приведены ли
+ * масштаб и метрики. Каждый вывод подпирается цитатой с таймкодом.
  */
 @Component
-class StubAnswerEvaluator : AnswerEvaluator {
+class RuleBasedAnswerEvaluator : AnswerEvaluator {
 
     private val personalMarkers = listOf("я ", "мной", "моя", "мой", "лично", "сам ")
     private val exampleMarkers = listOf("например", "у нас", "в проекте", "делали", "настраивали", "использовали")
@@ -74,7 +74,7 @@ class StubAnswerEvaluator : AnswerEvaluator {
             quotes = context.segments.take(1).map {
                 Evidence(context.answerId, context.questionOrd, it.text, it.startMs, it.endMs)
             },
-            model = "stub-evaluator",
+            model = "rule-based",
             promptVersion = "stub-0",
         )
     }

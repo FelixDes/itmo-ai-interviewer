@@ -37,19 +37,3 @@ class ReferenceQuestionGenerator : QuestionGenerator {
         GeneratedQuestion(q.text, null, q.signals, QuestionOrigin.RESUME)
     }
 }
-
-/** Заглушка на месте будущего LLM-генератора. Пока отдаёт тот же эталонный набор. */
-@Component
-class StubLlmQuestionGenerator(private val reference: ReferenceQuestionGenerator) : QuestionGenerator {
-
-    override val source = QuestionSetSource.LLM
-
-    override fun generateCore(vacancy: VacancyRow, requirements: List<RequirementRow>) =
-        reference.generateCore(vacancy, requirements)
-
-    override fun generatePersonal(
-        vacancy: VacancyRow,
-        requirements: List<RequirementRow>,
-        resumeText: String,
-    ) = reference.generatePersonal(vacancy, requirements, resumeText)
-}

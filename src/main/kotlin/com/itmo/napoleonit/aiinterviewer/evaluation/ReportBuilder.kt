@@ -35,7 +35,7 @@ interface ReportBuilder {
  * часть — только текст резюмирующих формулировок, его позже напишет LLM.
  */
 @Component
-class RuleBasedReportBuilder : ReportBuilder {
+class RuleBasedReportBuilder(private val narrator: ReportNarrator) : ReportBuilder {
 
     override fun build(context: ReportContext): Report {
         val answers = context.items.map { it.toAnswerReport() }
@@ -44,6 +44,20 @@ class RuleBasedReportBuilder : ReportBuilder {
         val mustVerdicts = verdicts.filter { it.kind == RequirementKind.MUST }
         val score = overallScore(mustVerdicts)
         val recommendation = recommend(mustVerdicts, score)
+
+        // Числа считают правила, формулировки пишет модель. Недоступна — берём шаблоны.
+        val narrative = runCatching {
+            narrator.narrate(
+                NarrativeContext(
+                    vacancyTitle = context.vacancy.title,
+                    grade = context.vacancy.grade,
+                    recommendation = recommendation,
+                    overallScore = score,
+                    verdicts = verdicts,
+                    answers = answers,
+                )
+            )
+        }.getOrNull()
 
         return Report(
             interviewId = context.interview.id,
@@ -54,20 +68,21 @@ class RuleBasedReportBuilder : ReportBuilder {
             recommendation = recommendation,
             overallScore = score,
             confidence = confidence(answers),
-            summary = summary(recommendation, mustVerdicts, answers),
+            summary = narrative?.summary ?: summary(recommendation, mustVerdicts, answers),
             requirementsMust = mustVerdicts,
             requirementsNice = verdicts.filter { it.kind == RequirementKind.NICE },
             answers = answers,
-            strengths = strengths(answers, verdicts),
-            risks = risks(answers, verdicts),
+            strengths = narrative?.strengths?.ifEmpty { null } ?: strengths(answers, verdicts),
+            risks = narrative?.risks?.ifEmpty { null } ?: risks(answers, verdicts),
             skillsFound = verdicts
                 .filter { it.status == RequirementStatus.CONFIRMED || it.status == RequirementStatus.PARTIAL }
                 .map { it.text.shortLabel() },
             skillsNotChecked = verdicts
                 .filter { it.status == RequirementStatus.NOT_CHECKED }
                 .map { it.text.shortLabel() },
-            nextStageQuestions = nextStageQuestions(verdicts, answers),
-            candidateFeedback = candidateFeedback(answers),
+            nextStageQuestions = narrative?.nextStageQuestions?.ifEmpty { null }
+                ?: nextStageQuestions(verdicts, answers),
+            candidateFeedback = narrative?.candidateFeedback?.ifBlank { null } ?: candidateFeedback(answers),
             technical = TechnicalBlock(
                 antifraudEvents = context.antifraud.map { AntifraudEventView(it.type, it.occurredAt) },
                 unrateableAnswers = answers.count { it.status == AnswerStatus.UNRATEABLE },
@@ -76,12 +91,14 @@ class RuleBasedReportBuilder : ReportBuilder {
                     add("Оценено ответов: ${answers.count { it.status == AnswerStatus.EVALUATED }} из ${answers.size}")
                     val skipped = answers.count { it.status == AnswerStatus.SKIPPED }
                     if (skipped > 0) add("Кандидат пропустил вопросов: $skipped")
-                    add("Резюмирующие формулировки пока пишет заглушка, а не модель")
+                    if (narrative == null) {
+                        add("Модель недоступна: формулировки собраны шаблонами, оценки — правилами")
+                    }
                 },
             ),
             meta = ReportMeta(
-                model = "rule-based-stub",
-                promptVersion = "stub-0",
+                model = narrative?.model ?: "rule-based",
+                promptVersion = narrative?.promptVersion ?: "rule-based",
                 rubricVersion = "v1",
                 questionSetVersion = context.interview.questionSetVersion,
                 generatedAt = Instant.now(),

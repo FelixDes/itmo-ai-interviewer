@@ -28,12 +28,11 @@ interface FollowUpGenerator {
 }
 
 /**
- * Заглушка вместо LLM, но правило настоящее: уточняем, когда в ответе нет
- * ни чисел, ни признаков личного вклада. Лимиты соблюдаются те же, что будут
- * у боевой реализации.
+ * Запасной путь без модели: уточняем, когда в ответе нет ни чисел,
+ * ни признаков личного вклада. Лимиты те же, что у LLM-реализации.
  */
 @Component
-class StubFollowUpGenerator : FollowUpGenerator {
+class RuleBasedFollowUpGenerator : FollowUpGenerator {
 
     private val personalMarkers = listOf("я ", "мной", "моя", "мой", "лично", "сам ")
 

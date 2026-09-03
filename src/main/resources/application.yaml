@@ -41,7 +41,8 @@ app:
   llm:
     base-url: http://localhost:1234/v1
     api-key: lm-studio
-    model: local-model
+    # auto — взять первую загруженную в LM Studio модель
+    model: auto
     timeout: 120s
 
   asr:

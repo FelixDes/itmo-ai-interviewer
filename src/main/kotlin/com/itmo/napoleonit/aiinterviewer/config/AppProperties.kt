@@ -7,6 +7,9 @@ import java.time.Duration
 data class AppProperties(
     val publicBaseUrl: String,
     val s3: S3,
+    val llm: Llm,
+    val asr: Asr,
+    val tts: Tts,
     val interview: Interview,
 ) {
     data class S3(
@@ -18,6 +21,26 @@ data class AppProperties(
         val secretKey: String,
         val uploadUrlTtl: Duration,
         val downloadUrlTtl: Duration,
+    )
+
+    /** OpenAI-совместимый endpoint: LM Studio локально, но меняется одним конфигом (Р-5). */
+    data class Llm(
+        val baseUrl: String,
+        val apiKey: String,
+        val model: String,
+        val timeout: Duration,
+        val temperature: Double = 0.2,
+    )
+
+    data class Asr(
+        val baseUrl: String,
+        val timeout: Duration,
+        val stubDelayMs: Long = 2500,
+    )
+
+    data class Tts(
+        val baseUrl: String,
+        val timeout: Duration,
     )
 
     data class Interview(
