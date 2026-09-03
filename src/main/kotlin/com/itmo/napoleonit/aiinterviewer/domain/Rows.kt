@@ -75,6 +75,13 @@ data class PlanItemRow(
 /** Внутренние состояния ответа; терминальные совпадают с AnswerStatus из API. */
 enum class AnswerState { RECORDING, UPLOADED, TRANSCRIBING, EVALUATING, EVALUATED, UNRATEABLE, SKIPPED, FAILED;
 
+    /**
+     * Кандидат с ответом закончил и получил следующий вопрос.
+     * Оценка при этом может ещё считаться в фоне, поэтому это не то же самое,
+     * что terminal: прогресс кандидата не должен зависеть от скорости модели.
+     */
+    val settled: Boolean get() = this != RECORDING && this != UPLOADED
+
     val terminal: AnswerStatus?
         get() = when (this) {
             EVALUATED -> AnswerStatus.EVALUATED

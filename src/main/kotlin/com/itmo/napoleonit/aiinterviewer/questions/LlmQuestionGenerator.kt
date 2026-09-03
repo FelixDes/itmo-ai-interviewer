@@ -1,5 +1,6 @@
 package com.itmo.napoleonit.aiinterviewer.questions
 
+import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import com.itmo.napoleonit.aiinterviewer.domain.RequirementRow
 import com.itmo.napoleonit.aiinterviewer.domain.VacancyRow
 import com.itmo.napoleonit.aiinterviewer.llm.LlmClient
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component
 class LlmQuestionGenerator(
     private val llm: LlmClient,
     private val fallback: ReferenceQuestionGenerator,
+    private val props: AppProperties,
 ) : QuestionGenerator {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -42,6 +44,7 @@ class LlmQuestionGenerator(
             schemaName = "core_questions",
             schema = QUESTIONS_SCHEMA,
             type = QuestionsResponse::class.java,
+            reasoningEffort = props.llm.reasoningEffortDeep,
         )
 
         val questions = response?.questions.orEmpty()
@@ -74,6 +77,7 @@ class LlmQuestionGenerator(
             schemaName = "personal_questions",
             schema = QUESTIONS_SCHEMA,
             type = QuestionsResponse::class.java,
+            reasoningEffort = props.llm.reasoningEffortDeep,
         )
 
         val questions = response?.questions.orEmpty()
@@ -135,6 +139,7 @@ class LlmQuestionGenerator(
             Для каждого вопроса перечисли признаки сильного ответа: что должно прозвучать,
             чтобы считать компетенцию подтверждённой.
 
+            Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.
         """.trimIndent()
 
@@ -148,6 +153,7 @@ class LlmQuestionGenerator(
             - если в резюме есть противоречие или подозрительно широкий стек — спроси об этом прямо, но нейтрально;
             - никаких вопросов о личной жизни, возрасте, здоровье и прочем, не относящемся к работе.
 
+            Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.
         """.trimIndent()
     }

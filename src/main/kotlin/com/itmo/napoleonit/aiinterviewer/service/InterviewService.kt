@@ -153,7 +153,7 @@ class InterviewService(
     }
 
     private fun answeredCount(interviewId: UUID) =
-        answers.byInterview(interviewId).count { it.state.terminal != null }
+        answers.byInterview(interviewId).count { it.state.settled }
 
     private fun detail(row: InterviewRow): InterviewDetail {
         val vacancy = vacancies.find(row.vacancyId)!!

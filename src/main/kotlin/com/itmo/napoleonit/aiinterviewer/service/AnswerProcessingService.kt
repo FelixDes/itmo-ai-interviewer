@@ -9,6 +9,7 @@ import com.itmo.napoleonit.aiinterviewer.questions.FollowUpContext
 import com.itmo.napoleonit.aiinterviewer.questions.FollowUpDecision
 import com.itmo.napoleonit.aiinterviewer.questions.FollowUpGenerator
 import com.itmo.napoleonit.aiinterviewer.transcription.AsrEngine
+import com.itmo.napoleonit.aiinterviewer.transcription.StubAsrEngine
 import com.itmo.napoleonit.aiinterviewer.transcription.TranscriptRefiner
 import com.itmo.napoleonit.aiinterviewer.web.dto.*
 import jakarta.annotation.PreDestroy
@@ -55,6 +56,11 @@ class AnswerProcessingService(
         workers.submit { runPipeline(job) }
     }
 
+    /**
+     * Синхронная часть — только то, без чего нельзя показать следующий вопрос:
+     * расшифровка и решение об уточнении. Полная оценка по рубрике уходит в фон,
+     * потому что кандидату она не нужна, а ждать её между вопросами — минуты.
+     */
     private fun runPipeline(job: ProcessingJobRow) {
         val answerId = job.answerId!!
         val interviewId = job.interviewId!!
@@ -65,12 +71,15 @@ class AnswerProcessingService(
 
             stage(job, ProcessingStage.TRANSCRIBING)
             answers.setState(answerId, AnswerState.TRANSCRIBING)
+            // Заглушке нужен текст вопроса, чтобы ответить по теме; боевой ASR его игнорирует
+            (asr as? StubAsrEngine)?.rememberQuestion(answer.mediaKey ?: "", item.text)
             val asrResult = asr.transcribe(answer.mediaKey ?: "", answer.contentType)
 
             if (!asrResult.usable || asrResult.text.isBlank()) {
                 // Рамка §7 и §8: честное «оценить нельзя», а не низкий балл
                 answers.complete(answerId, AnswerState.UNRATEABLE, null, Instant.now())
-                finish(job, interviewId, item, null)
+                answers.upsertJob(job.copy(state = JobState.DONE, stage = null))
+                closeIfLastAnswer(interviewId)
                 return
             }
 
@@ -82,12 +91,37 @@ class AnswerProcessingService(
                 )
             )
 
-            stage(job, ProcessingStage.EVALUATING)
+            stage(job, ProcessingStage.PREPARING_NEXT)
+            maybeAskFollowUp(interviewId, item, refined)
+
+            // Ответ ещё не оценён, но кандидат с ним закончил: даём следующий вопрос
             answers.setState(answerId, AnswerState.EVALUATING)
+            answers.upsertJob(job.copy(state = JobState.DONE, stage = null))
+
+            workers.submit { evaluate(answerId, interviewId, item, refined, asrResult) }
+        } catch (e: Exception) {
+            log.error("Пайплайн ответа {} упал", answerId, e)
+            runCatching { answers.complete(answerId, AnswerState.FAILED, null, Instant.now()) }
+            answers.upsertJob(job.copy(state = JobState.FAILED, stage = null, lastError = e.message))
+            // Интервью не должно вставать из-за одного ответа
+            runCatching { closeIfLastAnswer(interviewId) }
+        }
+    }
+
+    /** Фоновая часть: оценка по рубрике. Её результат нужен только карточке. */
+    private fun evaluate(
+        answerId: UUID,
+        interviewId: UUID,
+        item: PlanItemRow,
+        transcript: String,
+        asrResult: com.itmo.napoleonit.aiinterviewer.transcription.AsrResult,
+    ) {
+        try {
             val evaluation = evaluator.evaluate(
                 AnswerEvaluationContext(
                     answerId = answerId, questionOrd = item.ord, questionText = item.text,
-                    strongSignals = item.strongSignals, transcript = refined, segments = asrResult.segments,
+                    strongSignals = item.strongSignals, transcript = transcript,
+                    segments = asrResult.segments,
                 )
             )
             answers.saveEvaluation(
@@ -99,25 +133,12 @@ class AnswerProcessingService(
                 )
             )
             answers.complete(answerId, AnswerState.EVALUATED, null, Instant.now())
-
-            stage(job, ProcessingStage.PREPARING_NEXT)
-            finish(job, interviewId, item, refined)
         } catch (e: Exception) {
-            log.error("Пайплайн ответа $answerId упал", e)
+            log.error("Оценка ответа {} упала", answerId, e)
             runCatching { answers.complete(answerId, AnswerState.FAILED, null, Instant.now()) }
-            // Интервью не должно вставать из-за одного ответа
+        } finally {
             runCatching { closeIfLastAnswer(interviewId) }
-            answers.upsertJob(job.copy(state = JobState.FAILED, stage = null, lastError = e.message))
         }
-    }
-
-    private fun finish(job: ProcessingJobRow, interviewId: UUID, item: PlanItemRow, transcript: String?) {
-        if (transcript != null) maybeAskFollowUp(interviewId, item, transcript)
-        // Сначала закрываем интервью, только потом гасим задачу: иначе есть окно,
-        // в котором статус ещё IN_PROGRESS, задачи уже нет и текущего вопроса тоже —
-        // фронт в этот момент показал бы пустой экран.
-        closeIfLastAnswer(interviewId)
-        answers.upsertJob(job.copy(state = JobState.DONE, stage = null))
     }
 
     /** Адаптивное уточнение (Р-1). При ошибке генерации интервью идёт по базовому плану. */

@@ -30,7 +30,18 @@ data class AppProperties(
         val model: String,
         val timeout: Duration,
         val temperature: Double = 0.2,
+        val structuredOutput: StructuredOutput = StructuredOutput.AUTO,
+        /**
+         * Глубина рассуждений там, где ждёт кандидат: между вопросами интервью.
+         * У рассуждающих моделей это главный источник задержки.
+         */
+        val reasoningEffort: String = "low",
+        /** Там, где ждёт рекрутер и вызов разовый, качество важнее секунд. */
+        val reasoningEffortDeep: String = "high",
     )
+
+    /** Насколько строго провайдер умеет держать формат ответа. */
+    enum class StructuredOutput { AUTO, JSON_SCHEMA, JSON_OBJECT, NONE }
 
     data class Asr(
         val baseUrl: String,

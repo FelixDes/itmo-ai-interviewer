@@ -45,3 +45,8 @@ out/
 /docs/Данные для кейса Napoleon IT/
 /docs/описание
 /docs/qa с кейсодателем.md
+
+### Секреты — никогда не коммитим ###
+secrets.yaml
+.env
+.env.local

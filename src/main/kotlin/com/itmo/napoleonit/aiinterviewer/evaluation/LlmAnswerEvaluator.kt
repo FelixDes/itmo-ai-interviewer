@@ -40,6 +40,8 @@ class LlmAnswerEvaluator(
             schemaName = "answer_evaluation",
             schema = SCHEMA,
             type = EvaluationResponse::class.java,
+            // Оценка считается в фоне, кандидат её не ждёт — здесь можно думать дольше
+            reasoningEffort = props.llm.reasoningEffortDeep,
         ) ?: return fallback.evaluate(context)
 
         val quotes = response.quotes
@@ -83,7 +85,7 @@ class LlmAnswerEvaluator(
     data class QuoteRef(val segmentIndex: Int = 0, val why: String = "")
 
     private companion object {
-        const val PROMPT_VERSION = "eval-v1"
+        const val PROMPT_VERSION = "eval-v3"
 
         val CRITERION = mapOf(
             "type" to listOf("integer", "null"),
@@ -132,6 +134,8 @@ class LlmAnswerEvaluator(
 
             В quotes укажи номера сегментов, подтверждающих твои выводы.
 
+
+            Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.
         """.trimIndent()
     }

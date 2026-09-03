@@ -2,6 +2,10 @@ spring:
   application:
     name: aiinterviewer
 
+  # Локальные секреты (ключи API). Файла может не быть — тогда работаем на правилах.
+  config:
+    import: optional:file:./secrets.yaml
+
   datasource:
     url: jdbc:postgresql://localhost:5433/aiinterviewer
     username: aiinterviewer
@@ -39,11 +43,21 @@ app:
     download-url-ttl: 1h
 
   llm:
-    base-url: http://localhost:1234/v1
-    api-key: lm-studio
-    # auto — взять первую загруженную в LM Studio модель
-    model: auto
-    timeout: 120s
+    base-url: ${LLM_BASE_URL:https://api.deepseek.com/v1}
+    # Ключ живёт в secrets.yaml или переменной окружения, в репозитории его нет
+    api-key: ${LLM_API_KEY:}
+    # auto — взять первую модель, которую отдаёт провайдер
+    model: ${LLM_MODEL:deepseek-v4-flash}
+    timeout: 180s
+    temperature: 0.2
+    # Формат структурированного ответа: json_schema (строгая схема, OpenAI и LM Studio),
+    # json_object (общий JSON-режим, DeepSeek), none (только промпт).
+    # auto — попробовать json_schema и при отказе провайдера перейти на json_object.
+    structured-output: ${LLM_STRUCTURED_OUTPUT:auto}
+    # Глубина рассуждений: none | low | medium | high.
+    # Первое значение — для пауз внутри интервью, второе — для разовых вызовов рекрутера.
+    reasoning-effort: ${LLM_REASONING_EFFORT:low}
+    reasoning-effort-deep: ${LLM_REASONING_EFFORT_DEEP:high}
 
   asr:
     base-url: http://localhost:8100

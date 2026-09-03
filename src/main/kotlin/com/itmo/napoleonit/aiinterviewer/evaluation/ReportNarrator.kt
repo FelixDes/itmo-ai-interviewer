@@ -72,6 +72,7 @@ class LlmReportNarrator(
             schemaName = "report_narrative",
             schema = SCHEMA,
             type = NarrativeResponse::class.java,
+            reasoningEffort = props.llm.reasoningEffortDeep,
         ) ?: return null
 
         if (response.summary.isBlank()) return null
@@ -151,6 +152,7 @@ class LlmReportNarrator(
 
             Помни: итог является рекомендацией, решение принимает человек.
 
+            Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.
         """.trimIndent()
     }

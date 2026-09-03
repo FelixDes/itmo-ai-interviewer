@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder
 import org.springframework.boot.http.client.HttpClientSettings
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
@@ -27,6 +28,9 @@ class LlmClient(
     @Volatile
     private var resolvedModel: String? = null
 
+    @Volatile
+    private var effectiveMode: AppProperties.StructuredOutput? = null
+
     private val client: RestClient = RestClient.builder()
         .baseUrl(props.llm.baseUrl)
         .defaultHeader("Authorization", "Bearer ${props.llm.apiKey}")
@@ -39,7 +43,12 @@ class LlmClient(
         .build()
 
     /**
-     * Запрос со структурированным ответом по JSON Schema.
+     * Запрос со структурированным ответом.
+     *
+     * Провайдеры держат формат по-разному: OpenAI и LM Studio умеют строгую
+     * json_schema, DeepSeek — только общий json_object. В режиме auto пробуем
+     * строгую схему и при отказе провайдера один раз понижаемся, запомнив выбор.
+     *
      * Возвращает null, если модель недоступна или ответ не разобрался —
      * вызывающий обязан иметь запасной путь.
      */
@@ -49,23 +58,76 @@ class LlmClient(
         schemaName: String,
         schema: Map<String, Any>,
         type: Class<T>,
+        reasoningEffort: String = props.llm.reasoningEffort,
     ): T? {
-        val body = mapOf(
-            "model" to modelId(),
-            "temperature" to props.llm.temperature,
-            "messages" to listOf(
-                mapOf("role" to "system", "content" to systemPrompt),
-                mapOf("role" to "user", "content" to userPrompt),
-            ),
-            "response_format" to mapOf(
-                "type" to "json_schema",
-                "json_schema" to mapOf("name" to schemaName, "strict" to true, "schema" to schema),
-            ),
-        )
-        val content = call(body) ?: return null
+        val content = request(systemPrompt, userPrompt, schemaName, schema, mode(), reasoningEffort)
+            ?: return null
         return runCatching { mapper.readValue(extractJson(content), type) }
             .onFailure { log.warn("Ответ модели не разобрался как {}: {}", schemaName, content.take(400)) }
             .getOrNull()
+    }
+
+    private fun request(
+        systemPrompt: String,
+        userPrompt: String,
+        schemaName: String,
+        schema: Map<String, Any>,
+        mode: AppProperties.StructuredOutput,
+        reasoningEffort: String,
+    ): String? {
+        // В нестрогих режимах схему кладём в промпт: иначе модели не на что опереться
+        val system = if (mode == AppProperties.StructuredOutput.JSON_SCHEMA) systemPrompt else
+            systemPrompt + "\n\nВерни ответ строго как JSON по схеме, без пояснений вокруг:\n" +
+                mapper.writeValueAsString(schema)
+
+        val body = buildMap<String, Any> {
+            put("model", modelId())
+            put("temperature", props.llm.temperature)
+            if (reasoningEffort.isNotBlank()) put("reasoning_effort", reasoningEffort)
+            put(
+                "messages",
+                listOf(
+                    mapOf("role" to "system", "content" to system),
+                    mapOf("role" to "user", "content" to userPrompt),
+                )
+            )
+            when (mode) {
+                AppProperties.StructuredOutput.JSON_SCHEMA -> put(
+                    "response_format",
+                    mapOf(
+                        "type" to "json_schema",
+                        "json_schema" to mapOf("name" to schemaName, "strict" to true, "schema" to schema),
+                    )
+                )
+                AppProperties.StructuredOutput.JSON_OBJECT ->
+                    put("response_format", mapOf("type" to "json_object"))
+                else -> Unit
+            }
+        }
+
+        val result = call(body)
+        if (result.content != null) return result.content
+
+        // Провайдер не понял строгую схему — понижаемся и повторяем один раз
+        if (mode == AppProperties.StructuredOutput.JSON_SCHEMA && result.rejectedFormat) {
+            log.warn("Провайдер не принял json_schema, переходим на json_object")
+            effectiveMode = AppProperties.StructuredOutput.JSON_OBJECT
+            return request(
+                systemPrompt, userPrompt, schemaName, schema,
+                AppProperties.StructuredOutput.JSON_OBJECT, reasoningEffort,
+            )
+        }
+        return null
+    }
+
+    private fun mode(): AppProperties.StructuredOutput {
+        effectiveMode?.let { return it }
+        val configured = props.llm.structuredOutput
+        val resolved = if (configured == AppProperties.StructuredOutput.AUTO) {
+            AppProperties.StructuredOutput.JSON_SCHEMA
+        } else configured
+        effectiveMode = resolved
+        return resolved
     }
 
     fun available(): Boolean = models().isNotEmpty()
@@ -89,20 +151,32 @@ class LlmClient(
             ?.data.orEmpty().mapNotNull { it.id }
     }.getOrDefault(emptyList())
 
-    private fun call(body: Map<String, Any>): String? = runCatching {
-        val response = client.post()
-            .uri("/chat/completions")
-            .body(body)
-            .retrieve()
-            .body(ChatResponse::class.java)
-        warnedUnavailable.set(false)
-        response?.choices?.firstOrNull()?.message?.content
-    }.onFailure { e ->
-        // Шумим один раз: модель может быть не поднята всю сессию
-        if (warnedUnavailable.compareAndSet(false, true)) {
-            log.warn("LLM недоступна ({}), работаем на правилах: {}", props.llm.baseUrl, e.message)
+    private data class CallResult(val content: String?, val rejectedFormat: Boolean = false)
+
+    private fun call(body: Map<String, Any>): CallResult {
+        return try {
+            val response = client.post()
+                .uri("/chat/completions")
+                .body(body)
+                .retrieve()
+                .body(ChatResponse::class.java)
+            warnedUnavailable.set(false)
+            CallResult(response?.choices?.firstOrNull()?.message?.content)
+        } catch (e: HttpClientErrorException) {
+            val text = e.responseBodyAsString
+            val rejected = text.contains("response_format", true) ||
+                text.contains("json_schema", true) ||
+                e.statusCode.value() == 422
+            if (!rejected) log.warn("LLM ответила {}: {}", e.statusCode, text.take(300))
+            CallResult(null, rejected)
+        } catch (e: Exception) {
+            // Шумим один раз: провайдер может быть недоступен всю сессию
+            if (warnedUnavailable.compareAndSet(false, true)) {
+                log.warn("LLM недоступна ({}), работаем на правилах: {}", props.llm.baseUrl, e.message)
+            }
+            CallResult(null)
         }
-    }.getOrNull()
+    }
 
     /** Некоторые модели заворачивают JSON в ```-блок даже при strict-схеме. */
     private fun extractJson(content: String): String {

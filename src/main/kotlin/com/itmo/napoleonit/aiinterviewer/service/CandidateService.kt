@@ -179,7 +179,7 @@ class CandidateService(
             vacancyTitle = vacancy.title,
             companyName = companyName,
             candidateName = row.candidateName,
-            answered = answerRows.count { it.state.terminal != null },
+            answered = answerRows.count { it.state.settled },
             planned = plan.size,
             expectedDurationMinutes = (plan.size * 4).coerceIn(15, 40),
             maxAnswerDurationSec = props.interview.maxAnswerDurationSec,
