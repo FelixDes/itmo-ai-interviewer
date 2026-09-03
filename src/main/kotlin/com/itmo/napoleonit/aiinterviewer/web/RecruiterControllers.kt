@@ -1,6 +1,7 @@
 package com.itmo.napoleonit.aiinterviewer.web
 
-import com.itmo.napoleonit.aiinterviewer.stub.StubService
+import com.itmo.napoleonit.aiinterviewer.service.InterviewService
+import com.itmo.napoleonit.aiinterviewer.service.VacancyService
 import com.itmo.napoleonit.aiinterviewer.web.dto.*
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -44,26 +45,26 @@ class AuthController(
 
 @RestController
 @RequestMapping("/api/vacancies")
-class VacancyController(private val service: StubService) {
+class VacancyController(private val service: VacancyService) {
 
     @GetMapping
-    fun list(principal: Principal): List<VacancyListItem> = service.listVacancies(principal.name)
+    fun list(principal: Principal): List<VacancyListItem> = service.list(principal.name)
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(principal: Principal, @RequestBody input: VacancyInput): Vacancy =
-        service.createVacancy(principal.name, input)
+        service.create(principal.name, input)
 
     @GetMapping("/{id}")
-    fun get(principal: Principal, @PathVariable id: UUID): Vacancy = service.getVacancy(principal.name, id)
+    fun get(principal: Principal, @PathVariable id: UUID): Vacancy = service.get(principal.name, id)
 
     @PutMapping("/{id}")
     fun update(principal: Principal, @PathVariable id: UUID, @RequestBody input: VacancyInput): Vacancy =
-        service.updateVacancy(principal.name, id, input)
+        service.update(principal.name, id, input)
 
     @GetMapping("/{id}/question-sets")
     fun questionSets(principal: Principal, @PathVariable id: UUID): List<QuestionSet> =
-        service.listQuestionSets(principal.name, id)
+        service.listSets(principal.name, id)
 
     @PostMapping("/{id}/question-sets")
     @ResponseStatus(HttpStatus.CREATED)
@@ -71,48 +72,48 @@ class VacancyController(private val service: StubService) {
         principal: Principal,
         @PathVariable id: UUID,
         @RequestBody(required = false) body: GenerateQuestionsRequest?,
-    ): QuestionSet = service.generateQuestionSet(principal.name, id, body?.source ?: QuestionSetSource.LLM)
+    ): QuestionSet = service.generateSet(principal.name, id, body?.source ?: QuestionSetSource.LLM)
 }
 
 @RestController
 @RequestMapping("/api/question-sets")
-class QuestionSetController(private val service: StubService) {
+class QuestionSetController(private val service: VacancyService) {
 
     @GetMapping("/{id}")
-    fun get(principal: Principal, @PathVariable id: UUID): QuestionSet = service.getQuestionSet(principal.name, id)
+    fun get(principal: Principal, @PathVariable id: UUID): QuestionSet = service.getSet(principal.name, id)
 
     @PutMapping("/{id}")
     fun update(
         principal: Principal,
         @PathVariable id: UUID,
         @RequestBody body: UpdateQuestionsRequest,
-    ): QuestionSet = service.updateQuestionSet(principal.name, id, body.questions)
+    ): QuestionSet = service.updateSet(principal.name, id, body.questions)
 
     @PostMapping("/{id}/revise")
     @ResponseStatus(HttpStatus.CREATED)
     fun revise(principal: Principal, @PathVariable id: UUID): QuestionSet =
-        service.reviseQuestionSet(principal.name, id)
+        service.reviseSet(principal.name, id)
 
     @PostMapping("/{id}/freeze")
     fun freeze(principal: Principal, @PathVariable id: UUID): QuestionSet =
-        service.freezeQuestionSet(principal.name, id)
+        service.freezeSet(principal.name, id)
 }
 
 @RestController
 @RequestMapping("/api/interviews")
-class InterviewController(private val service: StubService) {
+class InterviewController(private val service: InterviewService) {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(principal: Principal, @RequestBody input: InterviewInput): InterviewDetail =
-        service.createInterview(principal.name, input)
+        service.create(principal.name, input)
 
     @GetMapping
     fun list(principal: Principal, @RequestParam(required = false) vacancyId: UUID?): List<InterviewListItem> =
-        service.listInterviews(principal.name, vacancyId)
+        service.list(principal.name, vacancyId)
 
     @GetMapping("/{id}")
-    fun get(principal: Principal, @PathVariable id: UUID): InterviewDetail = service.getInterview(principal.name, id)
+    fun get(principal: Principal, @PathVariable id: UUID): InterviewDetail = service.get(principal.name, id)
 
     @GetMapping("/{id}/report")
     fun report(principal: Principal, @PathVariable id: UUID): Report = service.report(principal.name, id)
@@ -136,7 +137,7 @@ class InterviewController(private val service: StubService) {
 
 @RestController
 @RequestMapping("/api/demo")
-class DemoController(private val service: StubService) {
+class DemoController(private val service: VacancyService) {
 
     /** Идемпотентный сид демо-данных, чтобы фронт не заполнял формы руками. */
     @PostMapping("/seed")

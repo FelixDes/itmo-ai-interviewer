@@ -4,8 +4,11 @@ import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import org.springframework.stereotype.Service
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.S3Configuration
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
@@ -29,6 +32,31 @@ class S3Service(private val props: AppProperties) {
         // MinIO работает по path-style, иначе браузер пойдёт на bucket.localhost
         .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
         .build()
+
+    private val client: S3Client = S3Client.builder()
+        .region(Region.of(props.s3.region))
+        .endpointOverride(URI.create(props.s3.endpoint))
+        .credentialsProvider(
+            StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(props.s3.accessKey, props.s3.secretKey)
+            )
+        )
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+        .build()
+
+    fun put(key: String, bytes: ByteArray, contentType: String) {
+        client.putObject(
+            { b -> b.bucket(props.s3.bucket).key(key).contentType(contentType) },
+            RequestBody.fromBytes(bytes),
+        )
+    }
+
+    /** null, если объекта нет: используется кэшем озвучки (Р-22). */
+    fun get(key: String): ByteArray? = try {
+        client.getObjectAsBytes { b -> b.bucket(props.s3.bucket).key(key) }.asByteArray()
+    } catch (e: NoSuchKeyException) {
+        null
+    }
 
     fun presignUpload(key: String, contentType: String): String =
         presigner.presignPutObject { b ->

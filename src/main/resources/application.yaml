@@ -47,6 +47,8 @@ app:
   asr:
     base-url: http://localhost:8100
     timeout: 300s
+    # Заглушка ASR: имитация задержки распознавания, чтобы экран ожидания был виден
+    stub-delay-ms: 2500
 
   tts:
     base-url: http://localhost:8101

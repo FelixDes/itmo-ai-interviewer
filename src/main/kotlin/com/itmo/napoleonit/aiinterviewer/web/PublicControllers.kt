@@ -1,25 +1,23 @@
 package com.itmo.napoleonit.aiinterviewer.web
 
-import com.itmo.napoleonit.aiinterviewer.stub.StubService
+import com.itmo.napoleonit.aiinterviewer.service.CandidateService
+import com.itmo.napoleonit.aiinterviewer.service.InterviewService
 import com.itmo.napoleonit.aiinterviewer.web.dto.*
 import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /** Сессия кандидата. Доступ по токену в URL, без куки и логина. */
 @RestController
 @RequestMapping("/api/s/{token}")
-class CandidateController(private val service: StubService) {
+class CandidateController(private val service: CandidateService) {
 
     @GetMapping
-    fun state(@PathVariable token: String): CandidateState = service.candidateState(token)
+    fun state(@PathVariable token: String): CandidateState = service.state(token)
 
     @PostMapping("/consent")
     fun consent(@PathVariable token: String): CandidateState = service.consent(token)
@@ -59,42 +57,18 @@ class CandidateController(private val service: StubService) {
      */
     @GetMapping("/questions/{questionId}/audio")
     fun audio(@PathVariable token: String, @PathVariable questionId: UUID): ResponseEntity<ByteArray> {
-        val text = service.questionText(token, questionId)
-        val seconds = (text.length / 15).coerceIn(2, 30)
+        val (bytes, contentType) = service.audio(token, questionId)
         return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType("audio/wav"))
+            .contentType(MediaType.parseMediaType(contentType))
             .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic())
-            .body(silentWav(seconds))
-    }
-
-    private fun silentWav(seconds: Int): ByteArray {
-        val sampleRate = 8000
-        val dataSize = sampleRate * seconds * 2
-        val out = ByteArrayOutputStream(44 + dataSize)
-        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
-        header.put("RIFF".toByteArray())
-        header.putInt(36 + dataSize)
-        header.put("WAVE".toByteArray())
-        header.put("fmt ".toByteArray())
-        header.putInt(16)
-        header.putShort(1)                       // PCM
-        header.putShort(1)                       // моно
-        header.putInt(sampleRate)
-        header.putInt(sampleRate * 2)            // байт в секунду
-        header.putShort(2)                       // выравнивание блока
-        header.putShort(16)                      // бит на сэмпл
-        header.put("data".toByteArray())
-        header.putInt(dataSize)
-        out.write(header.array())
-        out.write(ByteArray(dataSize))
-        return out.toByteArray()
+            .body(bytes)
     }
 }
 
 /** Нанимающий менеджер: один отчёт по токену, ничего больше. */
 @RestController
 @RequestMapping("/api/r")
-class ManagerController(private val service: StubService) {
+class ManagerController(private val service: InterviewService) {
 
     @GetMapping("/{token}")
     fun report(@PathVariable token: String): Report = service.reportByShareToken(token)

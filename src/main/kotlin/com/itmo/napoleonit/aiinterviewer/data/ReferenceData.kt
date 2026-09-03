@@ -1,14 +1,21 @@
-package com.itmo.napoleonit.aiinterviewer.stub
+package com.itmo.napoleonit.aiinterviewer.data
 
-import com.itmo.napoleonit.aiinterviewer.web.dto.*
-import java.util.UUID
+import com.itmo.napoleonit.aiinterviewer.web.dto.RequirementInput
+import com.itmo.napoleonit.aiinterviewer.web.dto.RequirementKind
 
 /**
- * Эталонные данные заказчика: вакансия Middle+ Python и 6 вопросов
- * из «Пример вакансии и вопросов.pdf». Используются демо-сидом и
- * реализацией REFERENCE (Р-14).
+ * Данные заказчика: вакансия Middle+ Python и 6 вопросов
+ * из «Пример вакансии и вопросов.pdf». Используются демо-сидом
+ * и генератором REFERENCE (Р-14).
  */
-object StubData {
+object ReferenceData {
+
+    const val VACANCY_TITLE = "Middle+ Python Developer"
+
+    const val VACANCY_DESCRIPTION =
+        "Разработка и поддержка высоконагруженных микросервисов, интеграция с Kafka для обработки " +
+            "потоков данных, проектирование Event Sourcing и CQRS, разработка API для межсервисного " +
+            "взаимодействия, настройка мониторинга и алертинга, участие в code review."
 
     data class RefQuestion(val text: String, val requirementText: String?, val signals: List<String>)
 
@@ -30,7 +37,6 @@ object StubData {
         req("Redis Cluster для высокодоступного кэширования", RequirementKind.NICE, 1),
         req("Domain-Driven Design", RequirementKind.NICE, 1),
         req("Performance tuning Python-приложений", RequirementKind.NICE, 2),
-        // Рамка §3: навыки, которые этим интервью проверить нельзя
         req("Участие в code review", RequirementKind.NICE, 1, notVerifiable = true),
     )
 
@@ -73,7 +79,6 @@ object StubData {
         ),
     )
 
-    /** Персональные вопросы (Р-12) — в скелете заглушка вместо LLM. */
     fun personalQuestions(resumeText: String): List<RefQuestion> {
         val hint = resumeText.take(60).replace("\n", " ").trim()
         return listOf(
@@ -98,20 +103,5 @@ object StubData {
         weight: Int,
         stopFactor: Boolean = false,
         notVerifiable: Boolean = false,
-    ) = RequirementInput(
-        id = null, text = text, kind = kind, weight = weight,
-        stopFactor = stopFactor, notVerifiable = notVerifiable,
-    )
-
-    fun toQuestions(source: List<RefQuestion>, requirements: List<Requirement>, origin: QuestionOrigin): List<Question> =
-        source.mapIndexed { index, q ->
-            Question(
-                id = UUID.randomUUID(),
-                ord = index + 1,
-                text = q.text,
-                requirementId = requirements.find { it.text == q.requirementText }?.id,
-                strongSignals = q.signals,
-                origin = origin,
-            )
-        }
+    ) = RequirementInput(null, text, kind, weight, stopFactor, notVerifiable)
 }
