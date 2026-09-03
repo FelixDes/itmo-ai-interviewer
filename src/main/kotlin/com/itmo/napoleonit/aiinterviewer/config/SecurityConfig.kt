@@ -54,6 +54,11 @@ class SecurityConfig {
                     "/api/r/**",        // нанимающий менеджер: доступ по токену в URL
                     "/api/demo/**",     // сид демо-данных
                     "/actuator/**",
+                    // Swagger UI: смотреть спецификацию можно без логина,
+                    // сами вызовы под сессией по-прежнему требуют входа
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**",
                 ).permitAll()
                 it.anyRequest().authenticated()
             }

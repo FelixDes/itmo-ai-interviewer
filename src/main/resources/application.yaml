@@ -18,6 +18,13 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    # Группы по ролям, а не свалка из всех эндпоинтов
+    display-request-duration: true
+    tags-sorter: alpha
+
 management:
   endpoints:
     web:
@@ -35,6 +42,8 @@ app:
     endpoint: http://localhost:9000
     # Адрес, по которому браузер ходит за presigned URL
     public-endpoint: http://localhost:9000
+    # Адрес MinIO внутри compose-сети: по нему за медиа ходит сервис asr
+    internal-endpoint: http://minio:9000
     region: us-east-1
     bucket: aiinterviewer
     access-key: aiinterviewer

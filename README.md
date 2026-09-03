@@ -20,9 +20,19 @@
 Инфраструктура в Docker, бэкенд — на хосте.
 
 ```bash
-docker compose up -d      # postgres:5433, minio:9000, консоль minio:9001
+docker compose up -d      # postgres:5433, minio:9000/9001, asr:8100, tts:8101
 ./gradlew bootRun         # backend:8080, Flyway накатывает схему сам
 ```
+
+Распознавание речи по умолчанию на процессоре. Если есть видеокарта NVIDIA
+и `nvidia-container-toolkit`, GPU даёт примерно двадцатикратный выигрыш:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build asr
+```
+
+Первая сборка `asr` и `tts` долгая: в образы кладутся модели, чтобы на демо
+не зависеть от интернета. Swagger UI — http://localhost:8080/swagger-ui.html
 
 Проверка:
 
@@ -31,9 +41,10 @@ curl -s localhost:8080/actuator/health
 curl -X POST localhost:8080/api/demo/seed   # демо-вакансия с эталонными вопросами
 ```
 
-API отвечает по всей спецификации `docs/api.md`. Данные лежат в PostgreSQL,
-ИИ-часть работает через API DeepSeek. Заглушены только распознавание речи
-и озвучка — обе за своими интерфейсами.
+API отвечает по всей спецификации `docs/api.md`. Данные в PostgreSQL,
+распознавание речи — faster-whisper, озвучка — Silero, ИИ-часть — DeepSeek.
+Каждый внешний сервис имеет запасной путь: без него система работает на
+правилах и заглушках, интервью не встаёт.
 
 ### Ключ к модели
 

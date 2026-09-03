@@ -17,6 +17,15 @@ interface AsrEngine {
 }
 
 /**
+ * Боевому ASR текст вопроса не нужен и не должен быть нужен. Заглушке он нужен,
+ * чтобы отвечать по теме, поэтому подсказка передаётся отдельным интерфейсом,
+ * а не протаскивается в основной.
+ */
+interface QuestionAwareAsr {
+    fun rememberQuestion(mediaKey: String, questionText: String)
+}
+
+/**
  * Выравнивание техжаргона вторым проходом.
  *
  * Словарь набран по реальным искажениям из эталонного транскрипта заказчика:
@@ -59,24 +68,46 @@ class DictionaryTranscriptRefiner : TranscriptRefiner {
         "отсёрт" to "upsert",
     )
 
-    /** Ошибки распознавания русских слов: здесь окончание трогать нельзя. */
+    /**
+     * Точные замены: слово целиком, окончание не трогаем.
+     *
+     * Сюда попадают ошибки, где стем трогать опасно («кавк» съел бы «Кавказ»),
+     * и искажения русских слов. Список пополняется по тому, что реально выдаёт
+     * faster-whisper на русской технической речи, а не по догадкам.
+     */
     private val spellFixes = mapOf(
+        "кавку" to "Kafka",
+        "кавка" to "Kafka",
+        "кавки" to "Kafka",
+        "кавке" to "Kafka",
+        "капку" to "Kafka",
+        "дубликация" to "дедупликация",
+        "дубликации" to "дедупликации",
         "идемпеотентность" to "идемпотентность",
         "идемпеотентности" to "идемпотентности",
-        "корутин" to "корутин",
+        "потоковый апсерт" to "upsert",
     )
 
-    private val patterns = latinTerms.entries
+    // (?U) обязателен: без него \b считается по ASCII и перед кириллицей
+    // границы слова просто нет, поэтому ни одна замена не срабатывает
+
+    /** Стем плюс любое русское окончание: «кафку», «кафке» -> Kafka. */
+    private val stemPatterns = latinTerms.entries
         .sortedByDescending { it.key.length }
-        // (?U) обязателен: без него \b считается по ASCII и перед кириллицей
-        // границы слова просто нет, поэтому ни одна замена не срабатывает
         .map { (stem, term) -> Regex("(?U)\\b$stem[а-яё]*", RegexOption.IGNORE_CASE) to term }
 
+    /**
+     * Слово целиком. Границы обязательны с обеих сторон: без них «кавка»
+     * находится внутри «Кавказский» и превращает его в «Kafkaзский».
+     */
+    private val exactPatterns = spellFixes.entries
+        .sortedByDescending { it.key.length }
+        .map { (word, term) -> Regex("(?U)\\b${Regex.escape(word)}\\b", RegexOption.IGNORE_CASE) to term }
+
     override fun refine(raw: String): String {
-        var text = spellFixes.entries.fold(raw) { acc, (from, to) ->
-            acc.replace(from, to, ignoreCase = true)
-        }
-        patterns.forEach { (pattern, term) -> text = pattern.replace(text, term) }
+        var text = raw
+        exactPatterns.forEach { (pattern, term) -> text = pattern.replace(text, term) }
+        stemPatterns.forEach { (pattern, term) -> text = pattern.replace(text, term) }
         return text
     }
 }

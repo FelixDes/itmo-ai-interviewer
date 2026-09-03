@@ -51,6 +51,37 @@ services:
       "
     restart: "no"
 
+  # Распознавание речи. На CPU: в Docker не проброшен nvidia runtime,
+  # а faster-whisper и без GPU работает быстрее реального времени.
+  asr:
+    build:
+      context: ./services/asr
+      args:
+        ASR_MODEL: ${ASR_MODEL:-small}
+    container_name: aii-asr
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_DEVICE: cpu
+      ASR_COMPUTE_TYPE: int8
+      ASR_LANGUAGE: ru
+    ports:
+      - "8100:8000"
+    # Контейнер ходит в MinIO по presigned-ссылке, которую подписал бэкенд
+    # на localhost, поэтому нужен доступ к хостовым портам
+    extra_hosts:
+      - "localhost:host-gateway"
+
+  # Озвучка вопросов, Silero
+  tts:
+    build: ./services/tts
+    container_name: aii-tts
+    environment:
+      TTS_SPEAKER: xenia
+      TTS_SAMPLE_RATE: "24000"
+      TTS_THREADS: "4"
+    ports:
+      - "8101:8000"
+
 volumes:
   pgdata:
   miniodata:

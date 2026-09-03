@@ -1,0 +1,24 @@
+# GPU-вариант ASR.
+# cudnn-runtime, а не base: CTranslate2 требует cuDNN 9 для CUDA 12.
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-pip python3-venv ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+ARG ASR_MODEL=medium
+ENV ASR_MODEL=${ASR_MODEL}
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('${ASR_MODEL}', device='cpu', compute_type='int8')"
+
+COPY app.py .
+ENV ASR_DEVICE=cuda
+ENV ASR_COMPUTE_TYPE=float16
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

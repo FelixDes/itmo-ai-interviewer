@@ -14,7 +14,13 @@ data class AppProperties(
 ) {
     data class S3(
         val endpoint: String,
+        /** Адрес, по которому за медиа ходит браузер. */
         val publicEndpoint: String,
+        /**
+         * Адрес для сервисов внутри compose-сети. Presigned-ссылка привязана
+         * к хосту, поэтому подписанная для браузера в контейнере не сработает.
+         */
+        val internalEndpoint: String,
         val region: String,
         val bucket: String,
         val accessKey: String,

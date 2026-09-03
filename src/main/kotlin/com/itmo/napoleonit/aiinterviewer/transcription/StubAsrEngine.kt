@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 class StubAsrEngine(
     /** Настоящий ASR думает секунды: без задержки фронту нечего показывать на экране ожидания. */
     @Value("\${app.asr.stub-delay-ms:2500}") private val delayMs: Long,
-) : AsrEngine {
+) : AsrEngine, QuestionAwareAsr {
 
     private data class Variant(val keywords: List<String>, val lines: List<String>)
 
@@ -94,13 +94,9 @@ class StubAsrEngine(
         )
     }
 
-    /**
-     * Настоящий ASR текста вопроса не знает и знать не должен. Заглушке он нужен,
-     * чтобы подобрать осмысленный ответ, поэтому передаётся сбоку, а не через интерфейс.
-     */
     private val questionHints = HashMap<String, String>()
 
-    fun rememberQuestion(mediaKey: String, questionText: String) {
+    override fun rememberQuestion(mediaKey: String, questionText: String) {
         questionHints[mediaKey] = questionText
     }
 }

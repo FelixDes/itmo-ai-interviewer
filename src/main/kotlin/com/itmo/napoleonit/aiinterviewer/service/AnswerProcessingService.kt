@@ -9,7 +9,7 @@ import com.itmo.napoleonit.aiinterviewer.questions.FollowUpContext
 import com.itmo.napoleonit.aiinterviewer.questions.FollowUpDecision
 import com.itmo.napoleonit.aiinterviewer.questions.FollowUpGenerator
 import com.itmo.napoleonit.aiinterviewer.transcription.AsrEngine
-import com.itmo.napoleonit.aiinterviewer.transcription.StubAsrEngine
+import com.itmo.napoleonit.aiinterviewer.transcription.QuestionAwareAsr
 import com.itmo.napoleonit.aiinterviewer.transcription.TranscriptRefiner
 import com.itmo.napoleonit.aiinterviewer.web.dto.*
 import jakarta.annotation.PreDestroy
@@ -72,7 +72,7 @@ class AnswerProcessingService(
             stage(job, ProcessingStage.TRANSCRIBING)
             answers.setState(answerId, AnswerState.TRANSCRIBING)
             // Заглушке нужен текст вопроса, чтобы ответить по теме; боевой ASR его игнорирует
-            (asr as? StubAsrEngine)?.rememberQuestion(answer.mediaKey ?: "", item.text)
+            (asr as? QuestionAwareAsr)?.rememberQuestion(answer.mediaKey ?: "", item.text)
             val asrResult = asr.transcribe(answer.mediaKey ?: "", answer.contentType)
 
             if (!asrResult.usable || asrResult.text.isBlank()) {

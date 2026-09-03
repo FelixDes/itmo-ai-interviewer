@@ -33,6 +33,29 @@ class S3Service(private val props: AppProperties) {
         .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
         .build()
 
+    /** Подписывает ссылки для сервисов внутри compose-сети, а не для браузера. */
+    private val internalPresigner: S3Presigner = S3Presigner.builder()
+        .region(Region.of(props.s3.region))
+        .endpointOverride(URI.create(props.s3.internalEndpoint))
+        .credentialsProvider(
+            StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(props.s3.accessKey, props.s3.secretKey)
+            )
+        )
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+        .build()
+
+    fun presignDownloadForServices(key: String): String =
+        internalPresigner.presignGetObject { b ->
+            b.signatureDuration(props.s3.downloadUrlTtl)
+                .getObjectRequest(
+                    GetObjectRequest.builder()
+                        .bucket(props.s3.bucket)
+                        .key(key)
+                        .build()
+                )
+        }.url().toExternalForm()
+
     private val client: S3Client = S3Client.builder()
         .region(Region.of(props.s3.region))
         .endpointOverride(URI.create(props.s3.endpoint))

@@ -1,0 +1,18 @@
+# Оверрайд для запуска ASR на видеокарте.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build asr
+#
+# TTS сюда намеренно не добавлен: Silero на CPU озвучивает вопрос быстрее,
+# чем его успевают прочитать, а образ с torch под CUDA весит несколько гигабайт.
+
+services:
+  asr:
+    build:
+      dockerfile: Dockerfile.gpu
+      args:
+        ASR_MODEL: ${ASR_MODEL:-medium}
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-medium}
+      ASR_DEVICE: cuda
+      ASR_COMPUTE_TYPE: float16
+    gpus: all
