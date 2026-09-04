@@ -138,3 +138,18 @@ details { margin-bottom: 8px; }
 summary { cursor: pointer; padding: 8px 0; }
 ul.tight { margin: 6px 0; padding-left: 20px; }
 ul.tight li { margin-bottom: 4px; }
+
+/* Предупреждение антифрода поверх интервью */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(17, 24, 39, .55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.blocker {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}

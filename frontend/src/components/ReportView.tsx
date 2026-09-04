@@ -1,8 +1,11 @@
 import { useRef, useState } from "react";
-import type { AnswerReport, Evidence, Finding, Report, RequirementVerdict, Scores } from "../api/types";
+import type {
+  AnswerReport, AntifraudEventType, Evidence, Finding, Report, RequirementVerdict, Scores,
+} from "../api/types";
 import {
-  answerStatusLabel, Badge, basisLabel, confidenceLabel, findingLabel, findingTone,
-  formatDate, formatTimecode, questionKindLabel, RecommendationBadge, RequirementStatusBadge,
+  answerStatusLabel, antifraudLabel, Badge, basisLabel, confidenceLabel, findingLabel,
+  findingTone, formatDate, formatTimecode, questionKindLabel, RecommendationBadge,
+  RequirementStatusBadge,
 } from "./ui";
 
 const SCORE_LABELS: Record<keyof Scores, string> = {
@@ -119,12 +122,9 @@ export default function ReportView({ report, actions }: { report: Report; action
           {report.technical.failedAnswers > 0 && (
             <li>Ошибок обработки: {report.technical.failedAnswers}</li>
           )}
-          {report.technical.antifraudEvents.length === 0
-            ? <li>Антифрод-событий не зафиксировано</li>
-            : report.technical.antifraudEvents.map((e, i) => (
-                <li key={i}>{e.type} · {formatDate(e.occurredAt)}</li>
-              ))}
         </ul>
+        <h3>Антифрод</h3>
+        <AntifraudSummary events={report.technical.antifraudEvents} />
         <p className="small muted mono">
           модель {report.meta.model} · промпт {report.meta.promptVersion} ·
           рубрика {report.meta.rubricVersion} · вопросы версии {report.meta.questionSetVersion} ·
@@ -132,6 +132,47 @@ export default function ReportView({ report, actions }: { report: Report; action
         </p>
       </div>
     </>
+  );
+}
+
+/** События группируем: десять уходов со вкладки — одна строка со счётчиком. */
+function AntifraudSummary({ events }: {
+  events: { type: AntifraudEventType; occurredAt: string }[];
+}) {
+  if (events.length === 0) {
+    return <p className="small muted">Событий не зафиксировано.</p>;
+  }
+  const grouped = new Map<AntifraudEventType, { count: number; first: string; last: string }>();
+  for (const event of events) {
+    const current = grouped.get(event.type);
+    if (current) {
+      current.count += 1;
+      current.last = event.occurredAt;
+    } else {
+      grouped.set(event.type, { count: 1, first: event.occurredAt, last: event.occurredAt });
+    }
+  }
+  return (
+    <table style={{ maxWidth: 620 }}>
+      <thead>
+        <tr>
+          <th>Событие</th>
+          <th style={{ width: 70 }}>Раз</th>
+          <th style={{ width: 160 }}>Впервые</th>
+          <th style={{ width: 160 }}>Последний раз</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...grouped.entries()].map(([type, stat]) => (
+          <tr key={type}>
+            <td>{antifraudLabel[type]}</td>
+            <td><b>{stat.count}</b></td>
+            <td className="muted small">{formatDate(stat.first)}</td>
+            <td className="muted small">{formatDate(stat.last)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { api, ApiError, uploadMedia } from "../api/client";
 import type { CandidateState, ProcessingStage } from "../api/types";
 import { ErrorBox, Progress, Spinner } from "../components/ui";
+import AntifraudWarning from "../components/AntifraudWarning";
+import { detectSecondScreen, useAntifraud } from "../components/antifraud";
 
 const STAGE_LABEL: Record<ProcessingStage, string> = {
   SAVING: "Сохраняем запись",
@@ -49,21 +51,13 @@ export default function CandidatePage() {
     return () => clearInterval(timer);
   }, [state, refresh]);
 
-  // Антифрод: о фиксации кандидат предупреждён на первом экране
-  useEffect(() => {
-    if (!state?.antifraudEnabled || state.status !== "IN_PROGRESS") return;
-    const hidden = () => { if (document.hidden) api.antifraudEvent(token!, "TAB_HIDDEN"); };
-    const copy = () => api.antifraudEvent(token!, "COPY");
-    const paste = () => api.antifraudEvent(token!, "PASTE");
-    document.addEventListener("visibilitychange", hidden);
-    document.addEventListener("copy", copy);
-    document.addEventListener("paste", paste);
-    return () => {
-      document.removeEventListener("visibilitychange", hidden);
-      document.removeEventListener("copy", copy);
-      document.removeEventListener("paste", paste);
-    };
-  }, [state?.antifraudEnabled, state?.status, token]);
+  // Антифрод. О фиксации кандидат предупреждён на первом экране,
+  // до того как что-либо записывается.
+  const antifraud = useAntifraud(
+    token!,
+    state?.antifraudEnabled ?? false,
+    state?.status === "IN_PROGRESS",
+  );
 
   if (error && !state) {
     return (
@@ -86,6 +80,9 @@ export default function CandidatePage() {
 
   return (
     <div className="layout narrow">
+      {antifraud.warning && (
+        <AntifraudWarning text={antifraud.warning} onDismiss={antifraud.dismissWarning} />
+      )}
       <p className="sub">{state.companyName} · {state.vacancyTitle}</p>
       <ErrorBox error={error} />
 
@@ -114,6 +111,8 @@ export default function CandidatePage() {
           key={state.currentQuestion.id}
           token={token!}
           state={state}
+          blockedBySecondScreen={antifraud.secondScreen}
+          tabSwitches={antifraud.tabSwitches}
           onFinished={setState}
           onError={setError}
         />
@@ -145,7 +144,10 @@ function ConsentScreen({ state, busy, onAgree }: {
       <ul className="tight">
         {state.rules.map((rule, i) => <li key={i}>{rule}</li>)}
         {state.antifraudEnabled && (
-          <li>Фиксируется уход со вкладки, копирование и вставка текста.</li>
+          <li>
+            Фиксируется уход со вкладки, копирование и вставка текста, а также
+            подключённый второй экран.
+          </li>
         )}
       </ul>
       <div className="panel" style={{ background: "#f9fafb" }}>
@@ -165,6 +167,20 @@ function DeviceCheck({ busy, onReady }: { busy: boolean; onReady: () => void }) 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [denied, setDenied] = useState(false);
   const [level, setLevel] = useState(0);
+  // null — браузер не поддерживает Window Management API, проверку пропускаем
+  const [extended, setExtended] = useState<boolean | null>(detectSecondScreen());
+
+  useEffect(() => {
+    if (detectSecondScreen() === null) return;
+    const check = () => setExtended(detectSecondScreen());
+    const target = screen as unknown as EventTarget;
+    target.addEventListener?.("change", check);
+    const timer = setInterval(check, 2000);
+    return () => {
+      target.removeEventListener?.("change", check);
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -224,18 +240,36 @@ function DeviceCheck({ busy, onReady }: { busy: boolean; onReady: () => void }) 
             <label>Уровень звука — скажите что-нибудь</label>
             <Progress value={level} total={100} />
           </div>
-          <button className="primary" disabled={!stream || busy} onClick={proceed}>
+
+          {extended === true && (
+            <div className="blocker">
+              <b>Обнаружен второй экран.</b>
+              <p className="small" style={{ margin: "4px 0 0" }}>
+                Отключите дополнительный монитор и дождитесь, пока это сообщение
+                исчезнет. Интервью проходится на одном экране.
+              </p>
+            </div>
+          )}
+
+          <button className="primary" disabled={!stream || busy || extended === true} onClick={proceed}>
             Всё работает, начать интервью
           </button>
+          {extended === null && (
+            <p className="small muted" style={{ marginTop: 8 }}>
+              Ваш браузер не сообщает о подключённых экранах — эта проверка пропущена.
+            </p>
+          )}
         </>
       )}
     </div>
   );
 }
 
-function QuestionScreen({ token, state, onFinished, onError }: {
+function QuestionScreen({ token, state, blockedBySecondScreen, tabSwitches, onFinished, onError }: {
   token: string;
   state: CandidateState;
+  blockedBySecondScreen: boolean;
+  tabSwitches: number;
   onFinished: (s: CandidateState) => void;
   onError: (message: string) => void;
 }) {
@@ -271,6 +305,12 @@ function QuestionScreen({ token, state, onFinished, onError }: {
   useEffect(() => {
     if (recording && seconds >= state.maxAnswerDurationSec) stop();
   }, [seconds, recording]);
+
+  // Второй экран подключили посреди ответа: запись завершаем, но не выбрасываем —
+  // сказанное отправится, а событие уже зафиксировано
+  useEffect(() => {
+    if (recording && blockedBySecondScreen) stop();
+  }, [blockedBySecondScreen, recording]);
 
   const start = () => {
     if (!streamRef.current) return;
@@ -342,9 +382,25 @@ function QuestionScreen({ token, state, onFinished, onError }: {
         <video ref={videoRef} autoPlay muted playsInline />
       </div>
 
+      {blockedBySecondScreen && (
+        <div className="blocker" style={{ marginTop: 12 }}>
+          <b>Подключён второй экран.</b>
+          <p className="small" style={{ margin: "4px 0 0" }}>
+            Отключите дополнительный монитор, чтобы продолжить. Подключение
+            зафиксировано и будет видно рекрутеру.
+          </p>
+        </div>
+      )}
+
+      {tabSwitches > 0 && (
+        <p className="small" style={{ color: "var(--warn)", marginTop: 12 }}>
+          Зафиксировано переключений на другое окно: {tabSwitches}
+        </p>
+      )}
+
       <div className="row" style={{ marginTop: 12 }}>
         {!recording ? (
-          <button className="primary" onClick={start} disabled={busy}>
+          <button className="primary" onClick={start} disabled={busy || blockedBySecondScreen}>
             {busy ? <Spinner text="отправляем" /> : "Начать ответ"}
           </button>
         ) : (

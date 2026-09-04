@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type {
-  AnswerStatus, Confidence, InterviewStatus, QuestionKind,
+  AnswerStatus, AntifraudEventType, Confidence, InterviewStatus, QuestionKind,
   Recommendation, RequirementStatus, FindingType, EvidenceBasis,
 } from "../api/types";
 
@@ -61,6 +61,13 @@ export const findingLabel: Record<FindingType, string> = {
 
 export const findingTone: Record<FindingType, string> = {
   FACT: "ok", INFERENCE: "", ASSUMPTION: "warn",
+};
+
+export const antifraudLabel: Record<AntifraudEventType, string> = {
+  TAB_HIDDEN: "уход со вкладки",
+  COPY: "копирование текста",
+  PASTE: "вставка текста",
+  MULTIPLE_SCREENS: "подключён второй экран",
 };
 
 export function Badge({ tone = "", children }: { tone?: string; children: ReactNode }) {

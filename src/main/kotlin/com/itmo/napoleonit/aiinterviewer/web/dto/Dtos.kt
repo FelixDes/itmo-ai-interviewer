@@ -18,7 +18,18 @@ enum class Confidence { LOW, MEDIUM, HIGH }
 enum class RequirementStatus { CONFIRMED, PARTIAL, NOT_CONFIRMED, NOT_CHECKED }
 enum class EvidenceBasis { ANSWER, RESUME, NONE }
 enum class FindingType { FACT, INFERENCE, ASSUMPTION }
-enum class AntifraudEventType { TAB_HIDDEN, COPY, PASTE }
+/**
+ * События антифрода. Сигнал для человека, а не доказательство нарушения:
+ * в карточку попадают отдельно от профессиональной оценки (Рамка §11).
+ */
+enum class AntifraudEventType {
+    /** Кандидат ушёл со вкладки или свернул окно */
+    TAB_HIDDEN,
+    COPY,
+    PASTE,
+    /** Обнаружен второй экран: подсказки удобно держать на нём */
+    MULTIPLE_SCREENS,
+}
 
 // ---------- аутентификация ----------
 

@@ -176,6 +176,24 @@ def scenario_access(op, interview_id):
     check("несуществующий токен кандидата", call(guest, "GET", "/api/s/" + "0" * 32)[0], 404)
 
 
+def scenario_antifraud(interview):
+    """Антифрод: события принимаются и доходят до карточки отдельным блоком."""
+    section("антифрод")
+    token = interview["candidateUrl"].rsplit("/", 1)[1]
+    guest = opener()
+    for kind in ("TAB_HIDDEN", "MULTIPLE_SCREENS", "COPY", "PASTE"):
+        check(f"событие {kind} принято",
+              call(guest, "POST", f"/api/s/{token}/events", {"type": kind})[0], 204)
+    # Неизвестное значение — ошибка клиента, а не пятисотка сервера
+    status, error = call(guest, "POST", f"/api/s/{token}/events", {"type": "NONSENSE"})
+    check("неизвестный тип отклонён", status, 400)
+    check("  с понятным кодом", error["code"], "VALIDATION_FAILED")
+
+    _, state = call(guest, "GET", f"/api/s/{token}")
+    check("кандидат предупреждён про второй экран до старта",
+          any("экран" in rule.lower() for rule in state["rules"]), True)
+
+
 # --------------------------------------------------------------------------
 # Сценарий: прохождение интервью
 # --------------------------------------------------------------------------
@@ -335,6 +353,8 @@ def scenario_report(op, interview_id):
 
     with_quote = [a for a in evaluated if a["evidence"]]
     check("выводы подкреплены цитатами", len(with_quote) > 0, True)
+    check("антифрод-события дошли до карточки",
+          len(report["technical"]["antifraudEvents"]) >= 4, True)
     if with_quote:
         quote = with_quote[0]["evidence"][0]
         check("  у цитаты есть таймкод", quote["startMs"] is not None, True)
@@ -378,6 +398,8 @@ def main():
               "но речь будет ненастоящей.")
 
     op, _, interview = scenario_api()
+
+    scenario_antifraud(interview)
 
     if which in ("all", "interview"):
         interview_id = scenario_interview(op, interview)

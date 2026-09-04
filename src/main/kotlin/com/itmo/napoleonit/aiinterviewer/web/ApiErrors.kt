@@ -2,6 +2,7 @@ package com.itmo.napoleonit.aiinterviewer.web
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -50,6 +51,20 @@ class ApiExceptionHandler {
         val details = e.bindingResult.fieldErrors.associate { it.field to (it.defaultMessage ?: "невалидно") }
         return ResponseEntity.badRequest().body(ApiErrorBody("VALIDATION_FAILED", "Невалидные данные", details))
     }
+
+    /**
+     * Тело не разобралось: неизвестное значение enum, кривой JSON, не тот тип.
+     * Это ошибка клиента, а не сервера, поэтому 400, а не 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleUnreadable(e: HttpMessageNotReadableException): ResponseEntity<ApiErrorBody> =
+        ResponseEntity.badRequest().body(
+            ApiErrorBody(
+                "VALIDATION_FAILED",
+                "Тело запроса не разобралось",
+                mapOf("body" to (e.mostSpecificCause.message?.take(300) ?: "невалидный JSON")),
+            )
+        )
 
     @ExceptionHandler(Exception::class)
     fun handleOther(e: Exception): ResponseEntity<ApiErrorBody> =
