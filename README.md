@@ -10,6 +10,7 @@
 | `docs/architecture.md` | Топология, модули, стейт-машины, схема БД, порядок сборки |
 | `docs/user-flow.md` | Экраны и сценарии рекрутера, кандидата, нанимающего менеджера |
 | `docs/api.md` | Спецификация API 1.0 — контракт для фронтенда |
+| `docs/testing.md` | Как проверить систему: скрипт, ручной прогон, что ломать |
 | `frontend/` | React 19 + TypeScript + Vite, девять экранов из `user-flow.md` |
 
 Исходные материалы заказчика (ТЗ, транскрипт дискавери-созвона, примеры вакансий
@@ -48,8 +49,10 @@ Vite проксирует `/api` на бэкенд, поэтому origin оди
 
 ```bash
 curl -s localhost:8080/actuator/health
-curl -X POST localhost:8080/api/demo/seed   # демо-вакансия с эталонными вопросами
+python3 scripts/smoke.py                    # сквозная проверка, около двух минут
 ```
+
+Подробнее — `docs/testing.md`.
 
 API отвечает по всей спецификации `docs/api.md`. Данные в PostgreSQL,
 распознавание речи — faster-whisper, озвучка — Silero, ИИ-часть — DeepSeek.
