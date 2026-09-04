@@ -69,6 +69,7 @@ export const antifraudLabel: Record<AntifraudEventType, string> = {
   COPY: "копирование текста",
   PASTE: "вставка текста",
   MULTIPLE_SCREENS: "подключён второй экран",
+  PROMPT_INJECTION: "попытка обратиться к модели напрямую",
 };
 
 export function Badge({ tone = "", children }: { tone?: string; children: ReactNode }) {

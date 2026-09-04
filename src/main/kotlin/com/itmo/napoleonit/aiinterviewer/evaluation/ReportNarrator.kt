@@ -3,6 +3,7 @@ package com.itmo.napoleonit.aiinterviewer.evaluation
 import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import com.itmo.napoleonit.aiinterviewer.llm.LlmClient
 import com.itmo.napoleonit.aiinterviewer.llm.Schema
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import com.itmo.napoleonit.aiinterviewer.web.dto.*
 import org.springframework.stereotype.Component
 
@@ -52,7 +53,7 @@ class LlmReportNarrator(
                 append("Вопрос ${a.ord} [${a.kind}]: ${a.questionText}\n")
                 append("Статус: ${a.status}")
                 a.scores?.let { append(", оценки: $it") }
-                a.transcriptRefined?.let { append("\nОтвет: ${it.take(1200)}") }
+                a.transcriptRefined?.let { append("\nОтвет: ${Untrusted.strip(it).take(1200)}") }
                 a.comment?.let { append("\nКомментарий оценщика: $it") }
             }
         }
@@ -67,7 +68,7 @@ class LlmReportNarrator(
                 $verdicts
 
                 Ответы кандидата:
-                $answers
+                ${Untrusted.block("ОТВЕТЫ", answers, 40000)}
             """.trimIndent(),
             schemaName = "report_narrative",
             schema = SCHEMA,
@@ -132,7 +133,7 @@ class LlmReportNarrator(
             "candidateFeedback" to Schema.string("Текст обратной связи лично кандидату"),
         )
 
-        val SYSTEM = """
+        val SYSTEM: String = """
             Ты пишешь текстовую часть заключения по итогам технического видеоинтервью.
             Читатель — рекрутер и нанимающий менеджер.
 
@@ -151,6 +152,7 @@ class LlmReportNarrator(
               без приговоров и без обещаний по итогу отбора.
 
             Помни: итог является рекомендацией, решение принимает человек.
+${Untrusted.RULE}
 
             Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.

@@ -2,6 +2,7 @@ package com.itmo.napoleonit.aiinterviewer.service
 
 import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import com.itmo.napoleonit.aiinterviewer.domain.*
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import com.itmo.napoleonit.aiinterviewer.persistence.*
 import com.itmo.napoleonit.aiinterviewer.questions.QuestionGenerators
 import com.itmo.napoleonit.aiinterviewer.web.*
@@ -23,6 +24,7 @@ class InterviewService(
     private val processing: AnswerProcessingService,
     private val props: AppProperties,
 ) {
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun create(owner: String, input: InterviewInput): InterviewDetail {
@@ -51,6 +53,20 @@ class InterviewService(
             failureMessage = null,
         )
         interviews.insert(interview)
+
+        // Резюме пишет кандидат: если там обращение к модели, рекрутер должен это увидеть
+        resume?.let { text ->
+            val markers = Untrusted.detectInjection(text)
+            if (markers.isNotEmpty()) {
+                log.warn("Резюме кандидата {} похоже на попытку внедрения: {}", interview.id, markers)
+                interviews.insertAntifraud(
+                    AntifraudRow(
+                        UUID.randomUUID(), interview.id,
+                        AntifraudEventType.PROMPT_INJECTION, Instant.now(),
+                    )
+                )
+            }
+        }
 
         // Ядро снапшотится: карточка обязана показывать то, что видел кандидат (Р-13)
         var ord = 0

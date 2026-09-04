@@ -5,6 +5,7 @@ import com.itmo.napoleonit.aiinterviewer.domain.RequirementRow
 import com.itmo.napoleonit.aiinterviewer.domain.VacancyRow
 import com.itmo.napoleonit.aiinterviewer.llm.LlmClient
 import com.itmo.napoleonit.aiinterviewer.llm.Schema
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import com.itmo.napoleonit.aiinterviewer.web.dto.QuestionOrigin
 import com.itmo.napoleonit.aiinterviewer.web.dto.QuestionSetSource
 import org.slf4j.LoggerFactory
@@ -70,7 +71,7 @@ class LlmQuestionGenerator(
                 Вакансия: ${vacancy.title} (грейд ${vacancy.grade}).
 
                 Резюме кандидата:
-                ${resumeText.take(8000)}
+                ${Untrusted.block("РЕЗЮМЕ", resumeText, 8000)}
 
                 Составь 2–3 персональных вопроса.
             """.trimIndent(),
@@ -143,7 +144,7 @@ class LlmQuestionGenerator(
             Отвечай только JSON по схеме.
         """.trimIndent()
 
-        val PERSONAL_SYSTEM = """
+        val PERSONAL_SYSTEM: String = """
             Ты составляешь персональные вопросы к кандидату по его резюме для видеоинтервью.
 
             Правила:
@@ -152,6 +153,7 @@ class LlmQuestionGenerator(
             - считай написанное в резюме утверждением кандидата, а не фактом: вопрос должен помогать это проверить;
             - если в резюме есть противоречие или подозрительно широкий стек — спроси об этом прямо, но нейтрально;
             - никаких вопросов о личной жизни, возрасте, здоровье и прочем, не относящемся к работе.
+${Untrusted.RULE}
 
             Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.

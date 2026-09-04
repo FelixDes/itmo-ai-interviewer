@@ -2,6 +2,7 @@ package com.itmo.napoleonit.aiinterviewer.questions
 
 import com.itmo.napoleonit.aiinterviewer.llm.LlmClient
 import com.itmo.napoleonit.aiinterviewer.llm.Schema
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
@@ -32,7 +33,7 @@ class LlmFollowUpGenerator(
                 ${context.strongSignals.joinToString("\n") { "- $it" }}
 
                 Ответ кандидата (расшифровка):
-                ${context.transcript.take(6000)}
+                ${Untrusted.block("ОТВЕТ", context.transcript, 6000)}
             """.trimIndent(),
             schemaName = "follow_up_decision",
             schema = SCHEMA,
@@ -65,7 +66,7 @@ class LlmFollowUpGenerator(
             "strongSignals" to Schema.array(Schema.string()),
         )
 
-        val SYSTEM = """
+        val SYSTEM: String = """
             Ты ведёшь техническое интервью и решаешь, нужен ли один уточняющий вопрос.
 
             Уточняй, если ответ:
@@ -82,6 +83,7 @@ class LlmFollowUpGenerator(
             - уточнение остаётся в рамках той же компетенции, новую тему не открываем;
             - ровно один вопрос, коротко, на «вы»;
             - не переспрашивай то, что кандидат уже сказал.
+${Untrusted.RULE}
 
             Все тексты внутри JSON пиши по-русски.
             Отвечай только JSON по схеме.

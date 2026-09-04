@@ -3,6 +3,7 @@ package com.itmo.napoleonit.aiinterviewer.evaluation
 import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import com.itmo.napoleonit.aiinterviewer.llm.LlmClient
 import com.itmo.napoleonit.aiinterviewer.llm.Schema
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import com.itmo.napoleonit.aiinterviewer.web.dto.Confidence
 import com.itmo.napoleonit.aiinterviewer.web.dto.Evidence
 import com.itmo.napoleonit.aiinterviewer.web.dto.Scores
@@ -24,7 +25,11 @@ class LlmAnswerEvaluator(
 ) : AnswerEvaluator {
 
     override fun evaluate(context: AnswerEvaluationContext): AnswerEvaluationResult {
-        val segments = context.segments.mapIndexed { i, s -> "[$i] ${s.text}" }.joinToString("\n")
+        val segments = Untrusted.block(
+            "РАСШИФРОВКА",
+            context.segments.mapIndexed { i, s -> "[$i] ${s.text}" }.joinToString("\n"),
+            8000,
+        )
 
         val response = llm.completeJson(
             systemPrompt = SYSTEM,
@@ -111,7 +116,7 @@ class LlmAnswerEvaluator(
             ),
         )
 
-        val SYSTEM = """
+        val SYSTEM: String = """
             Ты оцениваешь один ответ кандидата на техническом интервью по расшифровке аудио.
 
             Оцени по шести критериям от 0 до 5:
@@ -133,6 +138,7 @@ class LlmAnswerEvaluator(
             - confidence = LOW, если расшифровка короткая или обрывочная.
 
             В quotes укажи номера сегментов, подтверждающих твои выводы.
+${Untrusted.RULE}
 
 
             Все тексты внутри JSON пиши по-русски.

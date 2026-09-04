@@ -3,6 +3,7 @@ package com.itmo.napoleonit.aiinterviewer.service
 import com.itmo.napoleonit.aiinterviewer.config.AppProperties
 import com.itmo.napoleonit.aiinterviewer.domain.*
 import com.itmo.napoleonit.aiinterviewer.evaluation.*
+import com.itmo.napoleonit.aiinterviewer.llm.Untrusted
 import com.itmo.napoleonit.aiinterviewer.media.S3Service
 import com.itmo.napoleonit.aiinterviewer.persistence.*
 import com.itmo.napoleonit.aiinterviewer.questions.FollowUpContext
@@ -84,6 +85,20 @@ class AnswerProcessingService(
             }
 
             val refined = refiner.refine(asrResult.text)
+
+            // Кандидат может попытаться обратиться к модели голосом. Изоляция
+            // в промпте уже стоит, но рекрутеру полезно знать о самой попытке.
+            val markers = Untrusted.detectInjection(refined)
+            if (markers.isNotEmpty()) {
+                log.warn("Ответ {} похож на попытку внедрения: {}", answerId, markers)
+                interviews.insertAntifraud(
+                    AntifraudRow(
+                        UUID.randomUUID(), interviewId,
+                        AntifraudEventType.PROMPT_INJECTION, Instant.now(),
+                    )
+                )
+            }
+
             answers.saveTranscript(
                 TranscriptRow(
                     id = UUID.randomUUID(), answerId = answerId, rawText = asrResult.text,

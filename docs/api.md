@@ -181,7 +181,8 @@ type EvidenceBasis = "ANSWER" | "RESUME" | "NONE";
 type FindingType = "FACT" | "INFERENCE" | "ASSUMPTION";
 
 type AntifraudEventType =
-  | "TAB_HIDDEN" | "WINDOW_BLUR" | "COPY" | "PASTE" | "MULTIPLE_SCREENS";
+  | "TAB_HIDDEN" | "WINDOW_BLUR" | "COPY" | "PASTE"
+  | "MULTIPLE_SCREENS" | "PROMPT_INJECTION";
 ```
 
 `UNRATEABLE` — не сбой, а честный вывод «ответ невозможно уверенно оценить»
@@ -654,6 +655,9 @@ fire-and-forget.
 разрешение браузера тоже снимают фокус, но возвращают его сразу. Ошибку отправки игнорирует — событие не должно ломать интервью.
 Отправлять только при `antifraudEnabled == true`; кандидат об этом
 предупреждён на экране C1 (требование Рамки §11).
+
+`PROMPT_INJECTION` ставит сервер, а не фронт: в резюме или расшифровке ответа
+найдена попытка обратиться к модели напрямую. Детали — `decisions.md`, Р-24.
 
 `MULTIPLE_SCREENS` — обнаружен второй экран. Проверяется через `screen.isExtended`
 из Window Management API: свойство не требует разрешения, в отличие от

@@ -16,7 +16,8 @@ export type RequirementStatus = "CONFIRMED" | "PARTIAL" | "NOT_CONFIRMED" | "NOT
 export type EvidenceBasis = "ANSWER" | "RESUME" | "NONE";
 export type FindingType = "FACT" | "INFERENCE" | "ASSUMPTION";
 export type AntifraudEventType =
-  | "TAB_HIDDEN" | "WINDOW_BLUR" | "COPY" | "PASTE" | "MULTIPLE_SCREENS";
+  | "TAB_HIDDEN" | "WINDOW_BLUR" | "COPY" | "PASTE"
+  | "MULTIPLE_SCREENS" | "PROMPT_INJECTION";
 
 export interface CurrentUser { username: string; displayName: string }
 
