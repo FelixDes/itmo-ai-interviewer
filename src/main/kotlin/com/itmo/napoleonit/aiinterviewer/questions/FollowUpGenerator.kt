@@ -13,6 +13,8 @@ data class FollowUpContext(
     val strongSignals: List<String>,
     val transcript: String,
     val followUpsForThisAnswer: Int,
+    /** Уже заданные уточнения. Повторять их бессмысленно: ответа всё равно не будет. */
+    val alreadyAsked: List<String> = emptyList(),
     val maxFollowUpsPerAnswer: Int,
     val totalQuestions: Int,
     val maxTotalQuestions: Int,

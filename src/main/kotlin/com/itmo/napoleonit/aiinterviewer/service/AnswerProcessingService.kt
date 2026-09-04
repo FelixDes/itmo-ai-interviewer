@@ -167,6 +167,8 @@ class AnswerProcessingService(
                     strongSignals = item.strongSignals,
                     transcript = transcript,
                     followUpsForThisAnswer = alreadyAsked,
+                    alreadyAsked = plan.filter { it.kind == QuestionKind.FOLLOWUP }
+                        .takeLast(5).map { it.text },
                     maxFollowUpsPerAnswer = props.interview.maxFollowupsPerAnswer,
                     totalQuestions = plan.size,
                     maxTotalQuestions = props.interview.maxTotalQuestions,
