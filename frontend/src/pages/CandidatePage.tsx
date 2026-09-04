@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError, uploadMedia } from "../api/client";
 import type { CandidateState, ProcessingStage } from "../api/types";
-import { ErrorBox, Progress, Spinner } from "../components/ui";
+import { Progress, Spinner } from "../components/ui";
 import AntifraudWarning from "../components/AntifraudWarning";
 import { detectSecondScreen, useAntifraud } from "../components/antifraud";
 
@@ -79,19 +79,32 @@ export default function CandidatePage() {
   const done = state.status === "ANALYZING" || state.status === "READY_REPORT" || state.status === "FAILED";
 
   return (
-    <div className="layout narrow">
+    <div className="call">
       {antifraud.warning && (
         <AntifraudWarning text={antifraud.warning} onDismiss={antifraud.dismissWarning} />
       )}
-      <p className="sub">{state.companyName} · {state.vacancyTitle}</p>
-      <ErrorBox error={error} />
+
+      <div className="call-head">
+        <span>{state.companyName} · {state.vacancyTitle}</span>
+        <span className="grow" />
+        {state.status === "IN_PROGRESS" && <span className="live">● идёт интервью</span>}
+      </div>
+
+      {error && <div className="call-center"><div className="panel error">{error}</div></div>}
 
       {state.status === "EXPIRED" && (
-        <div className="panel"><h1>Ссылка недействительна</h1><p className="muted">{state.message}</p></div>
+        <div className="call-center">
+          <div className="panel">
+            <h1>Ссылка недействительна</h1>
+            <p className="muted">{state.message}</p>
+          </div>
+        </div>
       )}
 
       {state.status === "CREATED" && (
-        <ConsentScreen state={state} busy={busy} onAgree={() => act(() => api.consent(token!))} />
+        <div className="call-center">
+          <ConsentScreen state={state} busy={busy} onAgree={() => act(() => api.consent(token!))} />
+        </div>
       )}
 
       {state.status === "READY" && (
@@ -99,11 +112,7 @@ export default function CandidatePage() {
       )}
 
       {state.status === "IN_PROGRESS" && state.processing && (
-        <div className="panel">
-          <h1>Обрабатываем ответ</h1>
-          <p><Spinner text={STAGE_LABEL[state.processing.stage]} /></p>
-          <p className="muted small">Не закрывайте вкладку, это занимает несколько секунд.</p>
-        </div>
+        <ProcessingScreen stage={state.processing.stage} />
       )}
 
       {state.status === "IN_PROGRESS" && !state.processing && state.currentQuestion && (
@@ -119,13 +128,54 @@ export default function CandidatePage() {
       )}
 
       {done && (
-        <div className="panel">
-          <h1>Интервью отправлено</h1>
-          <p>{state.message}</p>
-          <p className="muted small">Эту вкладку можно закрыть.</p>
+        <div className="call-center">
+          <div className="panel">
+            <h1>Интервью завершено</h1>
+            <p>{state.message}</p>
+            <p className="muted small">Эту вкладку можно закрыть.</p>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+/** Плитка интервьюера. Аватар «оживает», пока звучит вопрос. */
+function InterviewerTile({ speaking }: { speaking: boolean }) {
+  return (
+    <div className="tile">
+      <div style={{ textAlign: "center" }}>
+        <div className={`avatar ${speaking ? "speaking" : ""}`}>AI</div>
+        {speaking && (
+          <div className="equalizer" style={{ justifyContent: "center" }}>
+            <i /><i /><i /><i />
+          </div>
+        )}
+      </div>
+      <div className="tile-name">Интервьюер</div>
+    </div>
+  );
+}
+
+function ProcessingScreen({ stage }: { stage: ProcessingStage }) {
+  return (
+    <>
+      <div className="call-stage">
+        <InterviewerTile speaking={false} />
+        <div className="tile">
+          <span className="muted small">Камера выключена на время обработки</span>
+        </div>
+      </div>
+      <div className="call-caption">
+        <h2><Spinner text={STAGE_LABEL[stage]} /></h2>
+        <div className="meta">Не закрывайте вкладку, это занимает несколько секунд.</div>
+      </div>
+      <div className="call-bar">
+        <span className="left" />
+        <button className="round" disabled>Ожидайте</button>
+        <span className="right" />
+      </div>
+    </>
   );
 }
 
@@ -150,11 +200,11 @@ function ConsentScreen({ state, busy, onAgree }: {
           </li>
         )}
       </ul>
-      <div className="panel" style={{ background: "#f9fafb" }}>
+      <div className="panel" style={{ background: "#16181d" }}>
         <label className="row" style={{ alignItems: "flex-start", cursor: "pointer" }}>
           <input type="checkbox" style={{ width: "auto", marginTop: 3 }}
             checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-          <span className="grow small" style={{ color: "var(--text)" }}>{state.consentText}</span>
+          <span className="grow small">{state.consentText}</span>
         </label>
       </div>
       <button className="primary" disabled={!agreed || busy} onClick={onAgree}>Продолжить</button>
@@ -222,46 +272,66 @@ function DeviceCheck({ busy, onReady }: { busy: boolean; onReady: () => void }) 
   };
 
   return (
-    <div className="panel">
-      <h1>Проверка камеры и микрофона</h1>
-      {denied ? (
-        <>
-          <p className="error">Браузер не дал доступ к камере или микрофону.</p>
-          <p className="small muted">
-            Разрешите доступ в настройках сайта (значок замка слева от адреса)
-            и обновите страницу. Без видео интервью пройти нельзя.
-          </p>
-          <button onClick={() => location.reload()}>Проверить снова</button>
-        </>
-      ) : (
-        <>
-          <video ref={videoRef} autoPlay muted playsInline />
-          <div className="field" style={{ maxWidth: 520, marginTop: 12 }}>
-            <label>Уровень звука — скажите что-нибудь</label>
-            <Progress value={level} total={100} />
-          </div>
+    <>
+      <div className="call-stage">
+        <InterviewerTile speaking={false} />
+        <div className="tile">
+          {denied
+            ? <span className="muted small" style={{ padding: 20, textAlign: "center" }}>
+                Камера недоступна
+              </span>
+            : <video ref={videoRef} autoPlay muted playsInline />}
+          <div className="tile-name">Вы</div>
+        </div>
+      </div>
 
-          {extended === true && (
-            <div className="blocker">
-              <b>Обнаружен второй экран.</b>
-              <p className="small" style={{ margin: "4px 0 0" }}>
-                Отключите дополнительный монитор и дождитесь, пока это сообщение
-                исчезнет. Интервью проходится на одном экране.
-              </p>
+      <div className="call-caption">
+        {denied ? (
+          <>
+            <h2>Нет доступа к камере или микрофону</h2>
+            <div className="meta">
+              Разрешите доступ в настройках сайта — значок замка слева от адреса —
+              и обновите страницу. Без видео интервью пройти нельзя.
             </div>
-          )}
+          </>
+        ) : (
+          <>
+            <h2>Проверьте себя перед началом</h2>
+            <div className="meta">
+              Вы должны видеть своё изображение, а полоска ниже — реагировать на голос.
+            </div>
+            <div style={{ maxWidth: 320, marginTop: 10 }}>
+              <Progress value={level} total={100} />
+            </div>
+            {extended === true && (
+              <div className="blocker" style={{ marginTop: 12 }}>
+                <b>Обнаружен второй экран.</b>
+                <p className="small" style={{ margin: "4px 0 0" }}>
+                  Отключите дополнительный монитор — интервью проходится на одном экране.
+                </p>
+              </div>
+            )}
+            {extended === null && (
+              <div className="meta">
+                Ваш браузер не сообщает о подключённых экранах — эта проверка пропущена.
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-          <button className="primary" disabled={!stream || busy || extended === true} onClick={proceed}>
-            Всё работает, начать интервью
+      <div className="call-bar">
+        <span className="left" />
+        {denied ? (
+          <button className="round" onClick={() => location.reload()}>Проверить снова</button>
+        ) : (
+          <button className="round" disabled={!stream || busy || extended === true} onClick={proceed}>
+            Присоединиться к интервью
           </button>
-          {extended === null && (
-            <p className="small muted" style={{ marginTop: 8 }}>
-              Ваш браузер не сообщает о подключённых экранах — эта проверка пропущена.
-            </p>
-          )}
-        </>
-      )}
-    </div>
+        )}
+        <span className="right" />
+      </div>
+    </>
   );
 }
 
@@ -278,9 +348,17 @@ function QuestionScreen({ token, state, blockedBySecondScreen, tabSwitches, onFi
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+
+  const replay = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    void audioRef.current.play();
+  };
 
   useEffect(() => {
     let active = true;
@@ -354,64 +432,73 @@ function QuestionScreen({ token, state, blockedBySecondScreen, tabSwitches, onFi
   };
 
   const left = state.maxAnswerDurationSec - seconds;
+  const timer = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
 
   return (
-    <div className="panel">
-      <div className="row between">
-        <span className="muted small">
-          Вопрос {state.answered + 1} из {state.planned}
-          {question.kind === "FOLLOWUP" && " · уточняющий"}
-        </span>
-        {recording && (
-          <span className="small">
-            <span className="rec-dot" />идёт запись · осталось {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
-          </span>
+    <>
+      <div className="call-stage">
+        <InterviewerTile speaking={speaking} />
+        <div className="tile">
+          <video ref={videoRef} autoPlay muted playsInline />
+          <div className="tile-name">Вы</div>
+          {recording && <div className="tile-rec">● запись</div>}
+        </div>
+      </div>
+
+      <div className="call-caption">
+        <h2>{question.text}</h2>
+        <div className="meta">
+          {question.kind === "FOLLOWUP" ? "Уточняющий вопрос" : "Вопрос интервьюера"}
+          {question.requirementText && ` · ${question.requirementText}`}
+          {" · "}
+          <button className="link" style={{ padding: 0 }} onClick={replay}>
+            прослушать заново
+          </button>
+        </div>
+        {/* Плеер скрыт: в звонке собеседник не показывает полосу воспроизведения */}
+        <audio
+          ref={audioRef}
+          src={question.audioUrl}
+          autoPlay
+          onPlay={() => setSpeaking(true)}
+          onEnded={() => setSpeaking(false)}
+          onPause={() => setSpeaking(false)}
+          style={{ display: "none" }}
+        />
+
+        {blockedBySecondScreen && (
+          <div className="blocker" style={{ marginTop: 12 }}>
+            <b>Подключён второй экран.</b>
+            <p className="small" style={{ margin: "4px 0 0" }}>
+              Отключите дополнительный монитор, чтобы продолжить. Подключение зафиксировано.
+            </p>
+          </div>
         )}
       </div>
-      <Progress value={state.answered} total={state.planned} />
 
-      <h1 style={{ fontSize: 19, marginTop: 16 }}>{question.text}</h1>
-      {question.requirementText && (
-        <p className="small muted">Проверяем: {question.requirementText}</p>
-      )}
+      <div className="call-bar">
+        <span className="left">
+          {recording
+            ? `Осталось ${timer}`
+            : tabSwitches > 0
+              ? `Зафиксировано уходов со страницы: ${tabSwitches}`
+              : "Одна попытка на вопрос"}
+        </span>
 
-      {/* Вопрос показывается текстом и озвучивается */}
-      <audio src={question.audioUrl} autoPlay controls style={{ width: "100%", maxWidth: 520 }} />
-
-      <div style={{ marginTop: 12 }}>
-        <video ref={videoRef} autoPlay muted playsInline />
-      </div>
-
-      {blockedBySecondScreen && (
-        <div className="blocker" style={{ marginTop: 12 }}>
-          <b>Подключён второй экран.</b>
-          <p className="small" style={{ margin: "4px 0 0" }}>
-            Отключите дополнительный монитор, чтобы продолжить. Подключение
-            зафиксировано и будет видно рекрутеру.
-          </p>
-        </div>
-      )}
-
-      {tabSwitches > 0 && (
-        <p className="small" style={{ color: "var(--warn)", marginTop: 12 }}>
-          Зафиксировано уходов со страницы: {tabSwitches}
-        </p>
-      )}
-
-      <div className="row" style={{ marginTop: 12 }}>
         {!recording ? (
-          <button className="primary" onClick={start} disabled={busy || blockedBySecondScreen}>
-            {busy ? <Spinner text="отправляем" /> : "Начать ответ"}
+          <button className="round" onClick={start} disabled={busy || blockedBySecondScreen}>
+            {busy ? "Отправляем…" : "Ответить"}
           </button>
         ) : (
-          <button className="primary" onClick={stop}>Завершить ответ</button>
+          <button className="round stop" onClick={stop}>Завершить ответ</button>
         )}
-        <span className="grow" />
-        <button onClick={skip} disabled={busy || recording}>Пропустить вопрос</button>
+
+        <span className="right">
+          <button className="ghost" onClick={skip} disabled={busy || recording}>
+            Пропустить
+          </button>
+        </span>
       </div>
-      <p className="small muted" style={{ marginTop: 8 }}>
-        Одна попытка на вопрос. Вернуться к предыдущему нельзя.
-      </p>
-    </div>
+    </>
   );
 }

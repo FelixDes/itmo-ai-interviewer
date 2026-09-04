@@ -153,3 +153,142 @@ ul.tight li { margin-bottom: 4px; }
   padding: 12px 14px;
   margin-bottom: 12px;
 }
+
+/* ------------------------------------------------------------------
+   Экран кандидата в виде видеозвонка.
+   Тёмный фон, две «плитки» участников, панель управления снизу по центру —
+   привычная кандидату обстановка, а не веб-форма с кнопками.
+   ------------------------------------------------------------------ */
+
+.call {
+  position: fixed;
+  inset: 0;
+  background: #16181d;
+  color: #e8eaed;
+  display: flex;
+  flex-direction: column;
+}
+
+.call-head {
+  padding: 12px 20px;
+  font-size: 13px;
+  color: #9aa0a6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.call-head .live { color: #f28b82; }
+
+.call-stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 0 20px;
+  min-height: 0;
+}
+
+.tile {
+  position: relative;
+  background: #202226;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.tile video { width: 100%; height: 100%; object-fit: cover; border-radius: 0; max-width: none; }
+.tile-name {
+  position: absolute; left: 12px; bottom: 10px;
+  background: rgba(0, 0, 0, .55);
+  padding: 3px 10px; border-radius: 6px;
+  font-size: 13px;
+}
+.tile-rec {
+  position: absolute; right: 12px; top: 10px;
+  background: rgba(0, 0, 0, .55);
+  padding: 3px 10px; border-radius: 6px;
+  font-size: 13px; color: #f28b82;
+}
+
+/* Плитка интервьюера: аватар и «говорит» вместо видео */
+.avatar {
+  width: 104px; height: 104px; border-radius: 50%;
+  background: #2f5bea; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 600; letter-spacing: .04em;
+  transition: box-shadow .2s;
+}
+.avatar.speaking { box-shadow: 0 0 0 8px rgba(47, 91, 234, .25), 0 0 0 16px rgba(47, 91, 234, .12); }
+
+.equalizer { display: flex; gap: 3px; height: 16px; align-items: flex-end; margin-top: 14px; }
+.equalizer i {
+  width: 3px; background: #8ab4f8; border-radius: 2px;
+  animation: eq .9s ease-in-out infinite;
+}
+.equalizer i:nth-child(2) { animation-delay: .15s; }
+.equalizer i:nth-child(3) { animation-delay: .3s; }
+.equalizer i:nth-child(4) { animation-delay: .45s; }
+@keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }
+
+/* Вопрос — как субтитры под говорящим */
+.call-caption {
+  margin: 14px 20px 0;
+  background: #202226;
+  border-radius: 12px;
+  padding: 16px 20px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.call-caption h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.45; }
+.call-caption .meta { color: #9aa0a6; font-size: 13px; margin-top: 8px; }
+
+/* Панель управления: кнопка ответа строго по центру */
+.call-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 16px 20px 22px;
+  gap: 12px;
+}
+.call-bar .left { color: #9aa0a6; font-size: 13px; }
+.call-bar .right { justify-self: end; }
+
+.round {
+  border: none;
+  border-radius: 999px;
+  padding: 15px 34px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: #2f5bea;
+  cursor: pointer;
+}
+.round:hover:not(:disabled) { background: #2549c4; }
+.round.stop { background: #d93b30; }
+.round.stop:hover { background: #b52d24; }
+.round:disabled { background: #3a3d44; color: #9aa0a6; cursor: not-allowed; }
+
+.ghost {
+  background: transparent; color: #9aa0a6;
+  border: 1px solid #3a3d44; border-radius: 8px; padding: 9px 14px;
+}
+.ghost:hover:not(:disabled) { color: #e8eaed; border-color: #5f6368; }
+
+.call .panel { background: #202226; border-color: #2f3237; color: #e8eaed; }
+.call .blocker { background: #3a2020; border-color: #5c2b26; color: #f6c9c5; }
+.call .muted, .call label { color: #9aa0a6; }
+.call a { color: #8ab4f8; }
+.call input, .call textarea { background: #16181d; border-color: #3a3d44; color: #e8eaed; }
+
+.call-center {
+  flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.call-center > .panel { max-width: 560px; width: 100%; margin: 0; }
+
+@media (max-width: 760px) {
+  .call-stage { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .call-bar { grid-template-columns: 1fr; justify-items: center; }
+  .call-bar .right { justify-self: center; }
+}
