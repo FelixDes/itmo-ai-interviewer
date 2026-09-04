@@ -58,23 +58,40 @@ layout: default
 
 # Куда встраивается решение
 
-```mermaid {scale: 0.72}
-flowchart LR
-  subgraph now["Как сейчас"]
-    direction LR
-    A1[Отклик] --> B1[Интервью<br/>с рекрутером] --> C1[Техинтервью<br/>с инженером<br/>1–1,5 часа] --> D1[Финальное<br/>интервью]
-  end
-  subgraph target["Куда идём"]
-    direction LR
-    A2[Отклик] --> B2[Асинхронное<br/>видеоинтервью<br/>без людей] --> D2[Финальное<br/>интервью<br/>живое]
-  end
-  now ~~~ target
-```
+<div class="mt-8">
 
+<div class="text-xs uppercase tracking-wide opacity-50 mb-2">Как сейчас</div>
+<div class="flex flex-wrap items-center gap-2 text-sm max-w-full">
+  <div class="px-3 py-2 border rounded whitespace-nowrap">Отклик</div>
+  <div class="opacity-40">→</div>
+  <div class="px-3 py-2 border rounded whitespace-nowrap">Интервью с рекрутером</div>
+  <div class="opacity-40">→</div>
+  <div class="px-3 py-2 border-2 border-red-400 bg-red-50 rounded text-center leading-tight">
+    Техинтервью<br/><span class="opacity-60 text-xs">инженер, 1–1,5 часа</span>
+  </div>
+  <div class="opacity-40">→</div>
+  <div class="px-3 py-2 border rounded whitespace-nowrap">Финальное интервью</div>
+</div>
+
+<div class="text-xs uppercase tracking-wide opacity-50 mb-2 mt-8">Куда идём</div>
+<div class="flex flex-wrap items-center gap-2 text-sm max-w-full">
+  <div class="px-3 py-2 border rounded whitespace-nowrap">Отклик</div>
+  <div class="opacity-40">→</div>
+  <div class="px-3 py-2 border-2 border-blue-500 bg-blue-50 rounded text-center leading-tight">
+    Асинхронное видеоинтервью<br/><span class="opacity-60 text-xs">без людей, когда удобно кандидату</span>
+  </div>
+  <div class="opacity-40">→</div>
+  <div class="px-3 py-2 border rounded whitespace-nowrap">Финальное интервью</div>
+</div>
+
+</div>
+
+<div class="mt-10 text-sm">
 Первые два этапа заменяет система. Третий остаётся живым — там soft skills
 и совпадение с ценностями команды, это не задача для модели.
+</div>
 
-<div class="mt-6 text-sm opacity-70">
+<div class="mt-3 text-sm opacity-70">
 Кандидат проходит интервью когда удобно ему, а не когда у эксперта нашёлся слот.
 </div>
 
