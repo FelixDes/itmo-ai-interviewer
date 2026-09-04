@@ -15,7 +15,8 @@ export type Confidence = "LOW" | "MEDIUM" | "HIGH";
 export type RequirementStatus = "CONFIRMED" | "PARTIAL" | "NOT_CONFIRMED" | "NOT_CHECKED";
 export type EvidenceBasis = "ANSWER" | "RESUME" | "NONE";
 export type FindingType = "FACT" | "INFERENCE" | "ASSUMPTION";
-export type AntifraudEventType = "TAB_HIDDEN" | "COPY" | "PASTE" | "MULTIPLE_SCREENS";
+export type AntifraudEventType =
+  | "TAB_HIDDEN" | "WINDOW_BLUR" | "COPY" | "PASTE" | "MULTIPLE_SCREENS";
 
 export interface CurrentUser { username: string; displayName: string }
 

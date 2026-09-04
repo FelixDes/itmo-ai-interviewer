@@ -64,7 +64,8 @@ export const findingTone: Record<FindingType, string> = {
 };
 
 export const antifraudLabel: Record<AntifraudEventType, string> = {
-  TAB_HIDDEN: "уход со вкладки",
+  TAB_HIDDEN: "переключение вкладки",
+  WINDOW_BLUR: "уход в другое окно",
   COPY: "копирование текста",
   PASTE: "вставка текста",
   MULTIPLE_SCREENS: "подключён второй экран",

@@ -181,7 +181,7 @@ def scenario_antifraud(interview):
     section("антифрод")
     token = interview["candidateUrl"].rsplit("/", 1)[1]
     guest = opener()
-    for kind in ("TAB_HIDDEN", "MULTIPLE_SCREENS", "COPY", "PASTE"):
+    for kind in ("TAB_HIDDEN", "WINDOW_BLUR", "MULTIPLE_SCREENS", "COPY", "PASTE"):
         check(f"событие {kind} принято",
               call(guest, "POST", f"/api/s/{token}/events", {"type": kind})[0], 204)
     # Неизвестное значение — ошибка клиента, а не пятисотка сервера
@@ -354,7 +354,7 @@ def scenario_report(op, interview_id):
     with_quote = [a for a in evaluated if a["evidence"]]
     check("выводы подкреплены цитатами", len(with_quote) > 0, True)
     check("антифрод-события дошли до карточки",
-          len(report["technical"]["antifraudEvents"]) >= 4, True)
+          len(report["technical"]["antifraudEvents"]) >= 5, True)
     if with_quote:
         quote = with_quote[0]["evidence"][0]
         check("  у цитаты есть таймкод", quote["startMs"] is not None, True)

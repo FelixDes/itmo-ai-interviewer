@@ -394,7 +394,7 @@ function QuestionScreen({ token, state, blockedBySecondScreen, tabSwitches, onFi
 
       {tabSwitches > 0 && (
         <p className="small" style={{ color: "var(--warn)", marginTop: 12 }}>
-          Зафиксировано переключений на другое окно: {tabSwitches}
+          Зафиксировано уходов со страницы: {tabSwitches}
         </p>
       )}
 

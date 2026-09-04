@@ -20,7 +20,7 @@ export function detectSecondScreen(): boolean | null {
 export const screenCheckSupported = () => detectSecondScreen() !== null;
 
 export interface AntifraudState {
-  /** Сколько раз кандидат уходил со вкладки */
+  /** Сколько раз кандидат уходил со страницы: сменой вкладки или окна */
   tabSwitches: number;
   /** Предупреждение, которое нужно показать и закрыть кнопкой */
   warning: string | null;
@@ -45,23 +45,61 @@ export function useAntifraud(token: string, enabled: boolean, active: boolean): 
   useEffect(() => {
     if (!enabled || !active) return;
 
-    const onVisibility = () => {
-      if (!document.hidden) return;
-      send("TAB_HIDDEN");
+    // Один уход — одно событие. Сворачивание вкладки поднимает и blur,
+    // и visibilitychange, а считать это двумя нарушениями нечестно.
+    let away = false;
+    let pending: number | undefined;
+
+    const leave = (type: AntifraudEventType) => {
+      if (away) return;
+      away = true;
+      send(type);
       setTabSwitches((count) => count + 1);
       setWarning(
-        "Вы переключились на другое окно. Это зафиксировано и будет видно " +
-        "рекрутеру. Отвечайте, не покидая вкладку с интервью.",
+        "Вы переключились на другое окно или вкладку. Это зафиксировано и будет " +
+        "видно рекрутеру. Отвечайте, не уходя со страницы интервью.",
       );
     };
-    const onCopy = () => send("COPY");
-    const onPaste = () => send("PASTE");
+
+    const back = () => {
+      clearTimeout(pending);
+      away = false;
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) leave("TAB_HIDDEN");
+      else back();
+    };
+
+    /**
+     * Окно потеряло фокус. На нескольких мониторах вкладка при этом остаётся
+     * видимой, поэтому document.hidden не меняется — без этой проверки уход
+     * в соседнее окно вообще не заметен.
+     *
+     * Небольшая задержка отсекает ложные срабатывания: клик в адресную строку
+     * или всплывающее разрешение браузера тоже снимают фокус, но возвращают
+     * его сразу.
+     */
+    const onBlur = () => {
+      clearTimeout(pending);
+      pending = window.setTimeout(() => {
+        if (!document.hasFocus()) leave("WINDOW_BLUR");
+      }, 400);
+    };
 
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", back);
+    const onCopy = () => send("COPY");
+    const onPaste = () => send("PASTE");
     document.addEventListener("copy", onCopy);
     document.addEventListener("paste", onPaste);
+
     return () => {
+      clearTimeout(pending);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", back);
       document.removeEventListener("copy", onCopy);
       document.removeEventListener("paste", onPaste);
     };
