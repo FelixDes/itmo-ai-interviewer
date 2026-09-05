@@ -47,7 +47,7 @@ class SynthesizeRequest(BaseModel):
 
 # Длительности пауз в миллисекундах. Вынесены в окружение, потому что
 # подбираются на слух: править их приходится не в коде, а слушая результат.
-SENTENCE_MS = int(os.getenv("TTS_BREAK_SENTENCE_MS", "500"))
+SENTENCE_MS = int(os.getenv("TTS_BREAK_SENTENCE_MS", "800"))
 CLAUSE_MS = int(os.getenv("TTS_BREAK_CLAUSE_MS", "350"))
 DASH_MS = int(os.getenv("TTS_BREAK_DASH_MS", "250"))
 COMMA_MS = int(os.getenv("TTS_BREAK_COMMA_MS", "100"))
@@ -78,19 +78,25 @@ def to_ssml(text: str) -> str:
     return f"<speak>{body}</speak>"
 
 
+# Разрез после знака конца предложения, но сам знак остаётся в тексте.
+# Наивный split(". ") съедал точку, и модель не видела границы предложений
+# вообще: вопрос из двух предложений читался как одно длинное.
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
 def split_text(text: str) -> list[str]:
     """Режем по границам предложений, чтобы не рвать слова и интонацию."""
     parts: list[str] = []
     current = ""
-    for sentence in text.replace("\n", " ").split(". "):
+    for sentence in SENTENCE_SPLIT.split(text.replace("\n", " ").strip()):
         candidate = f"{current} {sentence}".strip()
         if len(candidate) > MAX_CHUNK and current:
-            parts.append(current.strip())
+            parts.append(current)
             current = sentence
         else:
             current = candidate
-    if current.strip():
-        parts.append(current.strip())
+    if current:
+        parts.append(current)
     return parts or [text[:MAX_CHUNK]]
 
 
@@ -128,7 +134,18 @@ def synthesize(request: SynthesizeRequest) -> Response:
             audio = model.apply_tts(text=part, speaker=speaker, sample_rate=SAMPLE_RATE)
         chunks.append(audio)
 
-    audio = torch.cat(chunks) if len(chunks) > 1 else chunks[0]
+    if len(chunks) > 1:
+        # Между кусками нужна пауза: иначе на стыке предложения слипаются,
+        # а SSML внутри куска про соседний кусок ничего не знает
+        gap = torch.zeros(int(SAMPLE_RATE * SENTENCE_MS / 1000))
+        joined = []
+        for i, chunk in enumerate(chunks):
+            if i:
+                joined.append(gap)
+            joined.append(chunk)
+        audio = torch.cat(joined)
+    else:
+        audio = chunks[0]
     pcm = (audio.numpy() * 32767).astype("<i2").tobytes()
 
     buffer = io.BytesIO()
