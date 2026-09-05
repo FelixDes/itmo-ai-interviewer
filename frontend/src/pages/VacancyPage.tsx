@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { Grade, QuestionSet, RequirementInput, Vacancy } from "../api/types";
+import type { EvaluationMode, Grade, QuestionSet, RequirementInput, Vacancy } from "../api/types";
 import { Badge, ErrorBox, Spinner } from "../components/ui";
 
 const GRADES: Grade[] = ["JUNIOR", "MIDDLE", "MIDDLE_PLUS", "SENIOR", "LEAD"];
@@ -9,7 +9,13 @@ const GRADES: Grade[] = ["JUNIOR", "MIDDLE", "MIDDLE_PLUS", "SENIOR", "LEAD"];
 export default function VacancyPage() {
   const { id } = useParams<{ id: string }>();
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
-  const [draft, setDraft] = useState<{ title: string; grade: Grade; description: string; requirements: RequirementInput[] } | null>(null);
+  const [draft, setDraft] = useState<{
+    title: string;
+    grade: Grade;
+    description: string;
+    requirements: RequirementInput[];
+    evaluationMode: EvaluationMode;
+  } | null>(null);
   const [set, setSet] = useState<QuestionSet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -26,6 +32,7 @@ export default function VacancyPage() {
     setDraft({
       title: v.title, grade: v.grade, description: v.description,
       requirements: v.requirements.map((r) => ({ ...r })),
+      evaluationMode: v.evaluationMode,
     });
     await loadSet(v);
   };
@@ -89,6 +96,39 @@ export default function VacancyPage() {
           <label>Задачи роли</label>
           <textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
         </div>
+
+        <h2>Как считать итог</h2>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <button
+            className={draft.evaluationMode === "RULES" ? "primary" : ""}
+            onClick={() => setDraft({ ...draft, evaluationMode: "RULES" })}
+          >
+            По правилам
+          </button>
+          <button
+            className={draft.evaluationMode === "LLM" ? "primary" : ""}
+            onClick={() => setDraft({ ...draft, evaluationMode: "LLM" })}
+          >
+            Полностью моделью
+          </button>
+        </div>
+        <p className="small muted" style={{ marginTop: 0 }}>
+          {draft.evaluationMode === "RULES" ? (
+            <>
+              Вердикты и балл считаются из оценок ответов по весам требований,
+              модель пишет только формулировки. Результат воспроизводим: одни и те же
+              ответы всегда дают один и тот же балл, и его можно пересчитать вручную.
+            </>
+          ) : (
+            <>
+              Модель выносит вердикты, ставит балл и рекомендацию сама. Настраивать
+              веса и пороги не нужно, но результат перестаёт быть воспроизводимым:
+              один и тот же набор ответов может дать разный балл, и пересчитать его
+              не по чему. Веса и стоп-факторы ниже становятся подсказкой для модели,
+              а не формулой.
+            </>
+          )}
+        </p>
 
         <h2>Требования</h2>
         <p className="small muted">

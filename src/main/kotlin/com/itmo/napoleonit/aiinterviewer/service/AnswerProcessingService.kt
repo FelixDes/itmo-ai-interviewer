@@ -35,7 +35,7 @@ class AnswerProcessingService(
     private val refiner: TranscriptRefiner,
     private val evaluator: AnswerEvaluator,
     private val followUps: FollowUpGenerator,
-    private val reportBuilder: ReportBuilder,
+    private val reportBuilders: ReportBuilders,
     private val s3: S3Service,
     private val props: AppProperties,
 ) {
@@ -216,7 +216,7 @@ class AnswerProcessingService(
                 )
             }
 
-            val report = reportBuilder.build(
+            val report = reportBuilders.of(vacancy.evaluationMode).build(
                 ReportContext(
                     interview = interview,
                     vacancy = vacancy,

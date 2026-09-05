@@ -27,6 +27,21 @@ interface ReportBuilder {
 }
 
 /**
+ * Выбор способа оценки по режиму вакансии. Режим — часть данных, а не настройка
+ * приложения: на одних вакансиях нужна воспроизводимость, на других простота.
+ */
+@Component
+class ReportBuilders(
+    private val rules: RuleBasedReportBuilder,
+    private val llm: LlmReportBuilder,
+) {
+    fun of(mode: EvaluationMode): ReportBuilder = when (mode) {
+        EvaluationMode.RULES -> rules
+        EvaluationMode.LLM -> llm
+    }
+}
+
+/**
  * Сборка карточки по правилам Рамки §8.
  *
  * Логика настоящая: вердикты выводятся из оценок ответов, обязательные и
@@ -97,6 +112,7 @@ class RuleBasedReportBuilder(private val narrator: ReportNarrator) : ReportBuild
                 },
             ),
             meta = ReportMeta(
+                evaluationMode = EvaluationMode.RULES,
                 model = narrative?.model ?: "rule-based",
                 promptVersion = narrative?.promptVersion ?: "rule-based",
                 rubricVersion = "v1",

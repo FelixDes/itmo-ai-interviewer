@@ -1,6 +1,8 @@
 // Типы контракта. Источник истины — docs/api.md §2 и §3.
 
 export type Grade = "JUNIOR" | "MIDDLE" | "MIDDLE_PLUS" | "SENIOR" | "LEAD";
+/** RULES — вердикты и балл считают правила. LLM — модель решает всё сама. */
+export type EvaluationMode = "RULES" | "LLM";
 export type RequirementKind = "MUST" | "NICE";
 export type InterviewStatus =
   | "CREATED" | "READY" | "IN_PROGRESS" | "ANALYZING"
@@ -36,6 +38,7 @@ export interface VacancyInput {
   grade: Grade;
   description: string;
   requirements: RequirementInput[];
+  evaluationMode: EvaluationMode;
 }
 
 export interface QuestionSetRef {
@@ -47,6 +50,7 @@ export interface Vacancy {
   requirements: Requirement[];
   activeQuestionSet: QuestionSetRef | null;
   draftQuestionSet: QuestionSetRef | null;
+  evaluationMode: EvaluationMode;
   createdAt: string;
 }
 
@@ -159,6 +163,7 @@ export interface Report {
     unrateableAnswers: number; failedAnswers: number; notes: string[];
   };
   meta: {
+    evaluationMode: EvaluationMode;
     model: string; promptVersion: string; rubricVersion: string;
     questionSetVersion: number; generatedAt: string;
   };

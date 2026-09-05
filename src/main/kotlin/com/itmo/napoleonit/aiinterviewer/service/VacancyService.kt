@@ -41,6 +41,7 @@ class VacancyService(
             title = input.title,
             grade = input.grade,
             description = input.description,
+            evaluationMode = input.evaluationMode,
             createdAt = Instant.now(),
         )
         vacancies.insert(row)
@@ -62,7 +63,7 @@ class VacancyService(
     fun update(owner: String, id: UUID, input: VacancyInput): Vacancy {
         validate(input)
         val row = requireOwned(owner, id)
-        vacancies.update(id, input.title, input.grade, input.description)
+        vacancies.update(id, input.title, input.grade, input.description, input.evaluationMode)
 
         val existing = vacancies.requirements(id, includeDeleted = true).associateBy { it.id }
         val kept = mutableListOf<UUID>()
@@ -79,7 +80,12 @@ class VacancyService(
         // Мягкое удаление: на требования ссылаются вопросы и уже собранные карточки
         vacancies.softDeleteRequirementsExcept(id, kept)
 
-        return toDto(row.copy(title = input.title, grade = input.grade, description = input.description))
+        return toDto(
+            row.copy(
+                title = input.title, grade = input.grade,
+                description = input.description, evaluationMode = input.evaluationMode,
+            )
+        )
     }
 
     // ---------- наборы вопросов ----------
@@ -208,6 +214,7 @@ class VacancyService(
         requirements = vacancies.requirements(row.id).map { it.toDto() },
         activeQuestionSet = sets.activeSet(row.id)?.let { ref(it) },
         draftQuestionSet = sets.draftSet(row.id)?.let { ref(it) },
+        evaluationMode = row.evaluationMode,
         createdAt = row.createdAt,
     )
 

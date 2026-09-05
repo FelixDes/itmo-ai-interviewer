@@ -6,6 +6,16 @@ import java.util.UUID
 // ---------- перечисления (docs/api.md §2) ----------
 
 enum class Grade { JUNIOR, MIDDLE, MIDDLE_PLUS, SENIOR, LEAD }
+
+/**
+ * Кто выносит вердикты и считает балл.
+ *
+ * RULES — правила по оценкам ответов, модель пишет только формулировки.
+ *         Воспроизводимо: одни и те же оценки дают один и тот же балл.
+ * LLM   — модель решает всё сама. Проще в настройке, но результат от прогона
+ *         к прогону может отличаться, и пересчитать его нельзя.
+ */
+enum class EvaluationMode { RULES, LLM }
 enum class RequirementKind { MUST, NICE }
 enum class InterviewStatus { CREATED, READY, IN_PROGRESS, ANALYZING, READY_REPORT, FAILED, EXPIRED }
 enum class QuestionKind { CORE, PERSONAL, FOLLOWUP }
@@ -73,6 +83,7 @@ data class VacancyInput(
     val grade: Grade,
     val description: String = "",
     val requirements: List<RequirementInput> = emptyList(),
+    val evaluationMode: EvaluationMode = EvaluationMode.RULES,
 )
 
 data class QuestionSetRef(
@@ -90,6 +101,7 @@ data class Vacancy(
     val requirements: List<Requirement>,
     val activeQuestionSet: QuestionSetRef?,
     val draftQuestionSet: QuestionSetRef?,
+    val evaluationMode: EvaluationMode,
     val createdAt: Instant,
 )
 
@@ -301,6 +313,12 @@ data class TechnicalBlock(
 )
 
 data class ReportMeta(
+    /**
+     * Каким способом получены вердикты и балл в этой карточке.
+     * Значение по умолчанию нужно для карточек, собранных до появления режимов:
+     * все они считались правилами.
+     */
+    val evaluationMode: EvaluationMode = EvaluationMode.RULES,
     val model: String,
     val promptVersion: String,
     val rubricVersion: String,

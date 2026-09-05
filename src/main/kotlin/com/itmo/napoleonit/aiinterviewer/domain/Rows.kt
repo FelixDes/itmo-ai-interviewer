@@ -15,6 +15,7 @@ data class VacancyRow(
     val title: String,
     val grade: Grade,
     val description: String,
+    val evaluationMode: EvaluationMode,
     val createdAt: Instant,
 )
 

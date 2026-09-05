@@ -1,6 +1,7 @@
 package com.itmo.napoleonit.aiinterviewer.persistence
 
 import com.itmo.napoleonit.aiinterviewer.domain.*
+import com.itmo.napoleonit.aiinterviewer.web.dto.EvaluationMode
 import com.itmo.napoleonit.aiinterviewer.web.dto.Grade
 import com.itmo.napoleonit.aiinterviewer.web.dto.RequirementKind
 import org.springframework.jdbc.core.simple.JdbcClient
@@ -13,8 +14,8 @@ class VacancyRepository(private val db: JdbcClient) {
     fun insert(row: VacancyRow) {
         db.sql(
             """
-            insert into vacancy (id, owner_username, title, grade, description, created_at)
-            values (:id, :owner, :title, :grade, :description, :createdAt)
+            insert into vacancy (id, owner_username, title, grade, description, evaluation_mode, created_at)
+            values (:id, :owner, :title, :grade, :description, :mode, :createdAt)
             """
         )
             .param("id", row.id)
@@ -22,13 +23,21 @@ class VacancyRepository(private val db: JdbcClient) {
             .param("title", row.title)
             .param("grade", row.grade.name)
             .param("description", row.description)
+            .param("mode", row.evaluationMode.name)
             .param("createdAt", row.createdAt.offset())
             .update()
     }
 
-    fun update(id: UUID, title: String, grade: Grade, description: String) {
-        db.sql("update vacancy set title = :title, grade = :grade, description = :description where id = :id")
-            .param("id", id).param("title", title).param("grade", grade.name).param("description", description)
+    fun update(id: UUID, title: String, grade: Grade, description: String, mode: EvaluationMode) {
+        db.sql(
+            """
+            update vacancy set title = :title, grade = :grade, description = :description,
+                   evaluation_mode = :mode
+            where id = :id
+            """
+        )
+            .param("id", id).param("title", title).param("grade", grade.name)
+            .param("description", description).param("mode", mode.name)
             .update()
     }
 
@@ -100,6 +109,7 @@ class VacancyRepository(private val db: JdbcClient) {
         title = rs.getString("title"),
         grade = rs.enum("grade"),
         description = rs.getString("description"),
+        evaluationMode = rs.enum("evaluation_mode"),
         createdAt = rs.instant("created_at"),
     )
 

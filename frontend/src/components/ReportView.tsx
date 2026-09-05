@@ -125,6 +125,13 @@ export default function ReportView({ report, actions }: { report: Report; action
         </ul>
         <h3>Антифрод</h3>
         <AntifraudSummary events={report.technical.antifraudEvents} />
+        <p className="small">
+          {report.meta.evaluationMode === "LLM" ? (
+            <Badge tone="warn">вердикты и балл выставила модель</Badge>
+          ) : (
+            <Badge tone="ok">вердикты и балл посчитаны правилами</Badge>
+          )}
+        </p>
         <p className="small muted mono">
           модель {report.meta.model} · промпт {report.meta.promptVersion} ·
           рубрика {report.meta.rubricVersion} · вопросы версии {report.meta.questionSetVersion} ·

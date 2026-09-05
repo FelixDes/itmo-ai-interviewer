@@ -35,6 +35,7 @@ export default function VacanciesPage() {
         requirements: [
           { text: "Опишите первое требование", kind: "MUST", weight: 3, stopFactor: false, notVerifiable: false },
         ],
+        evaluationMode: "RULES",
       });
       navigate(`/vacancies/${vacancy.id}`);
     } catch (e) {

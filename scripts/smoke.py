@@ -217,6 +217,36 @@ def scenario_antifraud(interview):
           any("экран" in rule.lower() for rule in state["rules"]), True)
 
 
+def scenario_modes(op, vacancy_id):
+    """Переключатель способа оценки: правила или модель целиком."""
+    section("режим оценки")
+    _, vacancy = call(op, "GET", f"/api/vacancies/{vacancy_id}")
+    check("по умолчанию считают правила", vacancy["evaluationMode"], "RULES")
+
+    def switch(mode):
+        payload = {k: vacancy[k] for k in ("title", "grade", "description")}
+        payload["requirements"] = [
+            {k: r[k] for k in ("id", "text", "kind", "weight", "stopFactor", "notVerifiable")}
+            for r in vacancy["requirements"]
+        ]
+        payload["evaluationMode"] = mode
+        return call(op, "PUT", f"/api/vacancies/{vacancy_id}", payload)
+
+    status, updated = switch("LLM")
+    check("переключение на модель", status, 200)
+    check("  режим сохранён", updated["evaluationMode"], "LLM")
+    status, back = switch("RULES")
+    check("возврат к правилам", back["evaluationMode"], "RULES")
+
+    status, error = call(op, "PUT", f"/api/vacancies/{vacancy_id}", {
+        **{k: vacancy[k] for k in ("title", "grade", "description")},
+        "requirements": [{k: r[k] for k in ("id", "text", "kind", "weight", "stopFactor", "notVerifiable")}
+                         for r in vacancy["requirements"]],
+        "evaluationMode": "МАГИЯ",
+    })
+    check("неизвестный режим отклонён", status, 400)
+
+
 def scenario_voice(interview):
     """Кандидат выбирает голос интервьюера. На оценку не влияет, но слушать час."""
     section("выбор голоса интервьюера")
@@ -448,6 +478,7 @@ def main():
 
     scenario_antifraud(interview)
     scenario_voice(interview)
+    scenario_modes(op, interview["vacancyId"])
     scenario_injection(op, interview["vacancyId"])
 
     if which in ("all", "interview"):
