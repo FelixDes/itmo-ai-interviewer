@@ -92,6 +92,10 @@ export const api = {
     post<T.AnswerUpload>(`/api/s/${token}/answers/${answerId}/retry-upload`),
   skipQuestion: (token: string, questionId: string) =>
     post<T.CandidateState>(`/api/s/${token}/questions/${questionId}/skip`),
+  chooseVoice: (token: string, voice: string) =>
+    post<T.CandidateState>(`/api/s/${token}/voice`, { voice }),
+  voiceSampleUrl: (token: string, voice: string) =>
+    `/api/s/${token}/voices/${voice}/sample`,
   antifraudEvent: (token: string, type: T.AntifraudEventType) =>
     // fire-and-forget: событие не должно ломать интервью
     post<void>(`/api/s/${token}/events`, { type }).catch(() => undefined),

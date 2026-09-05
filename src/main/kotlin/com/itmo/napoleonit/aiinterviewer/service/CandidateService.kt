@@ -109,19 +109,49 @@ class CandidateService(
         )
     }
 
-    /** Озвучка лениво, с кэшем в S3 (Р-22): ключ — хеш текста, одинаковые вопросы делят аудио. */
+    /**
+     * Озвучка лениво, с кэшем в S3 (Р-22). Голос входит в ключ: иначе кандидат,
+     * сменивший голос, получал бы чужую озвучку из кэша.
+     */
     fun audio(token: String, questionId: UUID): Pair<ByteArray, String> {
         val row = require(token)
         val item = interviews.plan(row.id).find { it.id == questionId }
             ?: throw NotFound("Вопрос не найден")
+        return speak(item.text, voiceOf(row))
+    }
 
-        val key = item.audioKey ?: "tts/${tts.model}/${sha256(item.text)}.wav"
+    /** Короткая фраза тем же голосом: кандидат слушает её перед началом. */
+    fun voiceSample(token: String, voice: String): Pair<ByteArray, String> {
+        require(token)
+        return speak(SAMPLE_PHRASE, requireKnownVoice(voice))
+    }
+
+    @Transactional
+    fun chooseVoice(token: String, voice: String): CandidateState {
+        val row = require(token)
+        if (effectiveStatus(row) == InterviewStatus.EXPIRED) throw LinkExpired()
+        // Менять голос посреди интервью можно: на оценку он не влияет
+        interviews.setVoice(row.id, requireKnownVoice(voice))
+        return buildState(require(token))
+    }
+
+    private fun speak(text: String, voice: String): Pair<ByteArray, String> {
+        val key = "tts/${tts.model}/$voice/${sha256(text)}.wav"
         s3.get(key)?.let { return it to tts.contentType }
-
-        val audio = tts.synthesize(item.text)
+        val audio = tts.synthesize(text, voice)
         s3.put(key, audio, tts.contentType)
-        interviews.setAudioKey(item.id, key)
         return audio to tts.contentType
+    }
+
+    private fun voiceOf(row: InterviewRow): String =
+        row.ttsVoice ?: props.tts.defaultVoice
+
+    private fun requireKnownVoice(voice: String): String {
+        val known = props.tts.voices.map { it.id }
+        if (voice !in known) {
+            throw ValidationFailed(mapOf("voice" to "неизвестный голос, доступны: ${known.joinToString()}"))
+        }
+        return voice
     }
 
     // ---------- вспомогательное ----------
@@ -195,6 +225,8 @@ class CandidateService(
                 "этих материалов и данных резюме для оценки моей кандидатуры. " +
                 "[Текст-заглушка: юридическая формулировка появится позже.]",
             antifraudEnabled = true,
+            voices = props.tts.voices.map { VoiceOption(it.id, it.name) },
+            voice = voiceOf(row),
             currentQuestion = current?.let {
                 CandidateQuestion(
                     id = it.id,
@@ -213,6 +245,12 @@ class CandidateService(
                 else -> null
             },
         )
+    }
+
+    private companion object {
+        const val SAMPLE_PHRASE =
+            "Здравствуйте. Я задам несколько вопросов о вашем опыте. " +
+                "Отвечайте так, как рассказали бы коллеге."
     }
 
     private fun sha256(text: String): String =

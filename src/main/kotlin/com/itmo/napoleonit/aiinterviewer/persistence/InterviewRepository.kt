@@ -122,6 +122,11 @@ class InterviewRepository(private val db: JdbcClient, private val json: Json) {
         ).param("id", interviewId).param("fromOrd", fromOrd).update()
     }
 
+    fun setVoice(interviewId: UUID, voice: String) {
+        db.sql("update interview set tts_voice = :voice where id = :id")
+            .param("id", interviewId).param("voice", voice).update()
+    }
+
     fun setAudioKey(planItemId: UUID, key: String) {
         db.sql("update interview_question set audio_key = :key where id = :id")
             .param("id", planItemId).param("key", key).update()
@@ -235,6 +240,7 @@ class InterviewRepository(private val db: JdbcClient, private val json: Json) {
         completedAt = rs.instantOrNull("completed_at"),
         failureStage = rs.getString("failure_stage"),
         failureMessage = rs.getString("failure_message"),
+        ttsVoice = rs.getString("tts_voice"),
     )
 
     private fun mapPlanItem(rs: ResultSet, @Suppress("UNUSED_PARAMETER") n: Int) = PlanItemRow(

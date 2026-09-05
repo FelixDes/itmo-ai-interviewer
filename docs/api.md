@@ -562,6 +562,8 @@ POST /api/s/{token}/answers/{answerId}/complete { durationMs } -> 202 CandidateS
 POST /api/s/{token}/answers/{answerId}/retry-upload  -> AnswerUpload
 POST /api/s/{token}/questions/{questionId}/skip      -> CandidateState
 POST /api/s/{token}/events  { type, occurredAt? }    -> 204
+POST /api/s/{token}/voice   { voice }                -> CandidateState
+GET  /api/s/{token}/voices/{voice}/sample            -> 200 audio/wav
 GET  /api/s/{token}/questions/{questionId}/audio     -> 200 audio/mpeg
 ```
 
@@ -623,6 +625,18 @@ GET  /api/s/{token}/questions/{questionId}/audio     -> 200 audio/mpeg
 Ответ на `GET /api/s/{token}` всегда полный `CandidateState`, а не дельта.
 Фронт заменяет состояние целиком. Это сознательно: одно место правды,
 никакой синхронизации частичных обновлений.
+
+### Выбор голоса интервьюера
+
+Кандидат выбирает голос на экране проверки устройств. `CandidateState` отдаёт
+список `voices` и текущий `voice`; неизвестное значение отклоняется с
+`400 VALIDATION_FAILED`.
+
+`voices/{voice}/sample` возвращает короткую фразу этим голосом: выбрать голос
+по названию нельзя, его надо услышать.
+
+Менять голос можно и посреди интервью — на оценку он не влияет. Ключ кэша
+озвучки включает голос, поэтому после смены кандидат не получит старую запись.
 
 ### Аудио вопроса
 

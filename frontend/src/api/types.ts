@@ -94,12 +94,15 @@ export interface CandidateQuestion {
   audioUrl: string; requirementText: string | null;
 }
 
+export interface VoiceOption { id: string; name: string }
+
 export interface CandidateState {
   status: InterviewStatus;
   vacancyTitle: string; companyName: string; candidateName: string;
   answered: number; planned: number;
   expectedDurationMinutes: number; maxAnswerDurationSec: number;
   rules: string[]; consentText: string; antifraudEnabled: boolean;
+  voices: VoiceOption[]; voice: string;
   currentQuestion: CandidateQuestion | null;
   processing: { answerId: string; stage: ProcessingStage } | null;
   message: string | null;

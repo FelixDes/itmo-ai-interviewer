@@ -46,6 +46,20 @@ class CandidateController(private val service: CandidateService) {
     fun skip(@PathVariable token: String, @PathVariable questionId: UUID): CandidateState =
         service.skipQuestion(token, questionId)
 
+    @PostMapping("/voice")
+    fun chooseVoice(@PathVariable token: String, @RequestBody body: ChooseVoiceRequest): CandidateState =
+        service.chooseVoice(token, body.voice)
+
+    /** Короткий пример голоса, чтобы выбрать на слух, а не по названию. */
+    @GetMapping("/voices/{voice}/sample")
+    fun voiceSample(@PathVariable token: String, @PathVariable voice: String): ResponseEntity<ByteArray> {
+        val (bytes, contentType) = service.voiceSample(token, voice)
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(contentType))
+            .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic())
+            .body(bytes)
+    }
+
     @PostMapping("/events")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun event(@PathVariable token: String, @RequestBody body: AntifraudEventRequest) =

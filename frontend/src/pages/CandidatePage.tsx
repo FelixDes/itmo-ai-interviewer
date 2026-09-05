@@ -108,7 +108,13 @@ export default function CandidatePage() {
       )}
 
       {state.status === "READY" && (
-        <DeviceCheck busy={busy} onReady={() => act(() => api.start(token!))} />
+        <DeviceCheck
+          token={token!}
+          state={state}
+          busy={busy}
+          onVoiceChosen={setState}
+          onReady={() => act(() => api.start(token!))}
+        />
       )}
 
       {state.status === "IN_PROGRESS" && state.processing && (
@@ -212,7 +218,30 @@ function ConsentScreen({ state, busy, onAgree }: {
   );
 }
 
-function DeviceCheck({ busy, onReady }: { busy: boolean; onReady: () => void }) {
+function DeviceCheck({ token, state, busy, onVoiceChosen, onReady }: {
+  token: string;
+  state: CandidateState;
+  busy: boolean;
+  onVoiceChosen: (s: CandidateState) => void;
+  onReady: () => void;
+}) {
+  const sampleRef = useRef<HTMLAudioElement>(null);
+  const [voiceBusy, setVoiceBusy] = useState<string | null>(null);
+
+  /** Слушаем голос сразу при выборе: по названию его не выбрать. */
+  const pickVoice = async (voice: string) => {
+    setVoiceBusy(voice);
+    try {
+      onVoiceChosen(await api.chooseVoice(token, voice));
+      if (sampleRef.current) {
+        sampleRef.current.src = api.voiceSampleUrl(token, voice);
+        await sampleRef.current.play().catch(() => undefined);
+      }
+    } finally {
+      setVoiceBusy(null);
+    }
+  };
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [denied, setDenied] = useState(false);
@@ -303,6 +332,25 @@ function DeviceCheck({ busy, onReady }: { busy: boolean; onReady: () => void }) 
             <div style={{ maxWidth: 320, marginTop: 10 }}>
               <Progress value={level} total={100} />
             </div>
+            <div style={{ marginTop: 14 }}>
+              <div className="muted small" style={{ marginBottom: 6 }}>
+                Голос интервьюера — нажмите, чтобы послушать
+              </div>
+              <div className="row">
+                {state.voices.map((v) => (
+                  <button
+                    key={v.id}
+                    className={v.id === state.voice ? "primary" : ""}
+                    disabled={voiceBusy !== null}
+                    onClick={() => pickVoice(v.id)}
+                  >
+                    {voiceBusy === v.id ? "…" : v.name}
+                  </button>
+                ))}
+              </div>
+              <audio ref={sampleRef} style={{ display: "none" }} />
+            </div>
+
             {extended === true && (
               <div className="blocker" style={{ marginTop: 12 }}>
                 <b>Обнаружен второй экран.</b>

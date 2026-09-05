@@ -62,9 +62,19 @@ def health() -> dict:
     return {"status": "ok" if model else "loading", "speaker": SPEAKER, "sampleRate": SAMPLE_RATE}
 
 
+@app.get("/voices")
+def voices() -> dict:
+    """Голоса берём у самой модели, а не из захардкоженного списка."""
+    available = [s for s in getattr(model, "speakers", []) if s != "random"]
+    return {"default": SPEAKER, "voices": available}
+
+
 @app.post("/synthesize")
 def synthesize(request: SynthesizeRequest) -> Response:
     speaker = request.speaker or SPEAKER
+    if speaker not in getattr(model, "speakers", [speaker]):
+        log.warning("Неизвестный голос %s, берём %s", speaker, SPEAKER)
+        speaker = SPEAKER
     chunks = []
     for part in split_text(request.text):
         audio = model.apply_tts(text=part, speaker=speaker, sample_rate=SAMPLE_RATE)

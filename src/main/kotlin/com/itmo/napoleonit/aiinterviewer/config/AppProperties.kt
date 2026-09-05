@@ -58,7 +58,15 @@ data class AppProperties(
     data class Tts(
         val baseUrl: String,
         val timeout: Duration,
+        val defaultVoice: String = "xenia",
+        /**
+         * Голоса, которые предлагаем кандидату. Список наш, а не модели:
+         * подписи нужны человеческие, а состав — управляемый.
+         */
+        val voices: List<Voice> = emptyList(),
     )
+
+    data class Voice(val id: String, val name: String)
 
     data class Interview(
         val candidateLinkTtlDays: Long,

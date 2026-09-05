@@ -217,6 +217,30 @@ def scenario_antifraud(interview):
           any("экран" in rule.lower() for rule in state["rules"]), True)
 
 
+def scenario_voice(interview):
+    """Кандидат выбирает голос интервьюера. На оценку не влияет, но слушать час."""
+    section("выбор голоса интервьюера")
+    token = interview["candidateUrl"].rsplit("/", 1)[1]
+    guest = opener()
+
+    _, state = call(guest, "GET", f"/api/s/{token}")
+    check("голоса предлагаются", len(state["voices"]) >= 2, True)
+    info("на выбор: " + ", ".join(v["name"] for v in state["voices"]))
+
+    first, second = state["voices"][0]["id"], state["voices"][1]["id"]
+    _, sample_a = call(guest, "GET", f"/api/s/{token}/voices/{first}/sample")
+    _, sample_b = call(guest, "GET", f"/api/s/{token}/voices/{second}/sample")
+    check("образец голоса отдаётся", sample_a[:4] == b"RIFF", True)
+    check("голоса звучат по-разному", sample_a != sample_b, True)
+
+    status, error = call(guest, "POST", f"/api/s/{token}/voice", {"voice": "нет_такого"})
+    check("неизвестный голос отклонён", status, 400)
+    check("  с понятным кодом", error["code"], "VALIDATION_FAILED")
+
+    _, state = call(guest, "POST", f"/api/s/{token}/voice", {"voice": second})
+    check("выбор сохранён", state["voice"], second)
+
+
 # --------------------------------------------------------------------------
 # Сценарий: прохождение интервью
 # --------------------------------------------------------------------------
@@ -423,6 +447,7 @@ def main():
     op, _, interview = scenario_api()
 
     scenario_antifraud(interview)
+    scenario_voice(interview)
     scenario_injection(op, interview["vacancyId"])
 
     if which in ("all", "interview"):

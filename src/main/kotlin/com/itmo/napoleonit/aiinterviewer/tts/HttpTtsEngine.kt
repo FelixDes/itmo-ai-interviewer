@@ -36,13 +36,16 @@ class HttpTtsEngine(
         )
         .build()
 
-    override fun synthesize(text: String): ByteArray {
+    override fun synthesize(text: String, voice: String?): ByteArray {
         val audio = runCatching {
             client.post()
                 .uri("/synthesize")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.ALL)
-                .body(mapOf("text" to text))
+                .body(buildMap {
+                    put("text", text)
+                    voice?.let { put("speaker", it) }
+                })
                 .retrieve()
                 .body(ByteArray::class.java)
         }.onFailure { e ->
@@ -51,7 +54,7 @@ class HttpTtsEngine(
             }
         }.getOrNull()
 
-        if (audio == null || audio.isEmpty()) return fallback.synthesize(text)
+        if (audio == null || audio.isEmpty()) return fallback.synthesize(text, voice)
         warned.set(false)
         return audio
     }

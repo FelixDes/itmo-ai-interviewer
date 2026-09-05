@@ -140,6 +140,8 @@ data class InterviewRow(
     val completedAt: Instant?,
     val failureStage: String?,
     val failureMessage: String?,
+    /** Голос интервьюера, выбранный кандидатом. null — берём из конфига. */
+    val ttsVoice: String? = null,
 )
 
 data class ShareLinkRow(

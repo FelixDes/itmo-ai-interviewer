@@ -7,7 +7,8 @@ import java.nio.ByteOrder
 
 /** Озвучка вопроса (Р-16, Р-22). Здесь встанет Silero на tts:8101. */
 interface TtsEngine {
-    fun synthesize(text: String): ByteArray
+    /** voice = null означает голос по умолчанию. */
+    fun synthesize(text: String, voice: String? = null): ByteArray
     val contentType: String
     val model: String
 }
@@ -22,7 +23,7 @@ class SilenceTtsEngine : TtsEngine {
     override val contentType = "audio/wav"
     override val model = "stub-tts"
 
-    override fun synthesize(text: String): ByteArray {
+    override fun synthesize(text: String, voice: String?): ByteArray {
         val seconds = (text.length / 15).coerceIn(2, 30)
         val sampleRate = 8000
         val dataSize = sampleRate * seconds * 2

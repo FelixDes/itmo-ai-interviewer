@@ -198,6 +198,10 @@ data class CandidateQuestion(
 
 data class CandidateProcessing(val answerId: UUID, val stage: ProcessingStage)
 
+data class VoiceOption(val id: String, val name: String)
+
+data class ChooseVoiceRequest(val voice: String)
+
 data class CandidateState(
     val status: InterviewStatus,
     val vacancyTitle: String,
@@ -210,6 +214,9 @@ data class CandidateState(
     val rules: List<String>,
     val consentText: String,
     val antifraudEnabled: Boolean,
+    /** Голоса интервьюера на выбор и текущий выбор кандидата. */
+    val voices: List<VoiceOption>,
+    val voice: String,
     val currentQuestion: CandidateQuestion?,
     val processing: CandidateProcessing?,
     val message: String?,
