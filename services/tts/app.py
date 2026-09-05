@@ -4,9 +4,11 @@
 Silero TTS: русская речь, работает на CPU быстрее реального времени и не требует
 ни ключей, ни интернета после сборки образа.
 """
+import html
 import io
 import logging
 import os
+import re
 import wave
 
 import torch
@@ -39,6 +41,41 @@ def load_model() -> None:
 class SynthesizeRequest(BaseModel):
     text: str
     speaker: str | None = None
+    # Паузы по знакам препинания. Выключается, если текст читается неестественно
+    ssml: bool = True
+
+
+# Длительности пауз в миллисекундах. Вынесены в окружение, потому что
+# подбираются на слух: править их приходится не в коде, а слушая результат.
+SENTENCE_MS = int(os.getenv("TTS_BREAK_SENTENCE_MS", "500"))
+CLAUSE_MS = int(os.getenv("TTS_BREAK_CLAUSE_MS", "350"))
+DASH_MS = int(os.getenv("TTS_BREAK_DASH_MS", "250"))
+COMMA_MS = int(os.getenv("TTS_BREAK_COMMA_MS", "100"))
+
+
+def _brk(ms: int) -> str:
+    return f"<break time='{ms}ms'/>"
+
+
+BREAKS = [
+    (re.compile(r"([.!?])(\s+)"), r"\1" + _brk(SENTENCE_MS) + r"\2"),
+    (re.compile(r"([:;])(\s+)"), r"\1" + _brk(CLAUSE_MS) + r"\2"),
+    (re.compile(r"(\s)([—–])(\s)"), r"\1" + _brk(DASH_MS) + r"\2\3"),
+    (re.compile(r"(,)(\s+)"), r"\1" + _brk(COMMA_MS) + r"\2"),
+]
+
+
+def to_ssml(text: str) -> str:
+    """
+    Расставляет паузы по знакам препинания.
+
+    Silero сам почти не делает пауз: вопрос из двух предложений звучит как одно
+    длинное, и кандидат теряет, где кончился первый.
+    """
+    body = html.escape(text, quote=False)
+    for pattern, replacement in BREAKS:
+        body = pattern.sub(replacement, body)
+    return f"<speak>{body}</speak>"
 
 
 def split_text(text: str) -> list[str]:
@@ -77,7 +114,18 @@ def synthesize(request: SynthesizeRequest) -> Response:
         speaker = SPEAKER
     chunks = []
     for part in split_text(request.text):
-        audio = model.apply_tts(text=part, speaker=speaker, sample_rate=SAMPLE_RATE)
+        audio = None
+        if request.ssml:
+            # Разметка может не понравиться парсеру модели — тогда читаем как есть,
+            # без пауз, но не роняем озвучку целиком
+            try:
+                audio = model.apply_tts(
+                    ssml_text=to_ssml(part), speaker=speaker, sample_rate=SAMPLE_RATE
+                )
+            except Exception as e:
+                log.warning("SSML не разобрался (%s), читаем обычным текстом", e)
+        if audio is None:
+            audio = model.apply_tts(text=part, speaker=speaker, sample_rate=SAMPLE_RATE)
         chunks.append(audio)
 
     audio = torch.cat(chunks) if len(chunks) > 1 else chunks[0]

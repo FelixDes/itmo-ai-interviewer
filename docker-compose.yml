@@ -79,6 +79,11 @@ services:
       TTS_SPEAKER: xenia
       TTS_SAMPLE_RATE: "24000"
       TTS_THREADS: "4"
+      # Паузы по знакам препинания, миллисекунды. Подбираются на слух
+      TTS_BREAK_SENTENCE_MS: "500"
+      TTS_BREAK_CLAUSE_MS: "350"
+      TTS_BREAK_DASH_MS: "250"
+      TTS_BREAK_COMMA_MS: "100"
     ports:
       - "8101:8000"
 
