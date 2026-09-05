@@ -149,6 +149,13 @@ server: { proxy: { "/api": "http://localhost:8080" } }
 ```ts
 type Grade = "JUNIOR" | "MIDDLE" | "MIDDLE_PLUS" | "SENIOR" | "LEAD";
 
+/**
+ * Кто выносит вердикты по требованиям, ставит балл и рекомендацию.
+ * RULES — правила по оценкам ответов, результат воспроизводим.
+ * LLM — модель целиком, проще в настройке, но пересчитать результат не по чему.
+ */
+type EvaluationMode = "RULES" | "LLM";
+
 type RequirementKind = "MUST" | "NICE";
 
 type InterviewStatus =
@@ -216,6 +223,9 @@ interface VacancyInput {
   grade: Grade;
   description: string;      // 0..20000
   requirements: RequirementInput[];   // 1..40
+  // По умолчанию RULES. В режиме LLM веса и стоп-факторы становятся
+  // подсказкой для модели, а не формулой расчёта
+  evaluationMode: EvaluationMode;
 }
 
 interface QuestionSetRef {
@@ -233,6 +243,7 @@ interface Vacancy {
   requirements: Requirement[];
   activeQuestionSet: QuestionSetRef | null;   // последний зафиксированный
   draftQuestionSet: QuestionSetRef | null;    // незафиксированный, если есть
+  evaluationMode: EvaluationMode;
   createdAt: string;
 }
 
@@ -444,6 +455,8 @@ interface Report {
   };
 
   meta: {
+    // Каким способом получены вердикты и балл именно в этой карточке
+    evaluationMode: EvaluationMode;
     model: string;
     promptVersion: string;
     rubricVersion: string;
